@@ -222,3 +222,5 @@ mlx/
 chat/bonsai_chat.db
 chat/config.json
 .superpowers/
+llama-server-start.cmd
+llama-server.log

@@ -70,20 +70,16 @@ if ($LlamaRunning) {
     $CtxSize = if ($env:BONSAI_CTX) { $env:BONSAI_CTX } else { "8192" }
 
     Write-Host "==> Starting llama-server (port $LlamaPort, context $CtxSize) ..." -ForegroundColor Cyan
-    $LlamaProc = Start-Process -FilePath $LlamaServer -ArgumentList @(
-        "-m", $ModelFile.FullName,
-        "--host", "127.0.0.1",
-        "--port", $LlamaPort,
-        "-ngl", "99",
-        "-c", $CtxSize,
-        "--temp", "0.5",
-        "--top-p", "0.85",
-        "--top-k", "20",
-        "--min-p", "0",
-        "--reasoning-budget", "0",
-        "--reasoning-format", "none",
-        "--chat-template-kwargs", '{"enable_thinking": false}'
-    ) -PassThru -WindowStyle Minimized
+
+    # Write a temp batch file to launch llama-server — avoids PowerShell argument escaping issues
+    $BatchFile = Join-Path $DemoDir "llama-server-start.cmd"
+    $LogFile = Join-Path $DemoDir "llama-server.log"
+    @"
+@echo off
+"$LlamaServer" -m "$($ModelFile.FullName)" --host 127.0.0.1 --port $LlamaPort -ngl 99 -c $CtxSize --temp 0.5 --top-p 0.85 --top-k 20 --min-p 0 --reasoning-budget 0 --reasoning-format none --chat-template-kwargs "{""enable_thinking"": false}" 2>"$LogFile"
+"@ | Set-Content -Path $BatchFile -Encoding ASCII
+
+    $LlamaProc = Start-Process -FilePath "cmd.exe" -ArgumentList "/c", $BatchFile -PassThru -WindowStyle Minimized
 
     # Wait for server to be ready (up to 120 seconds — model loading can be slow)
     Write-Host "    Waiting for llama-server to be ready (this may take a minute) ..." -ForegroundColor Cyan
@@ -92,8 +88,10 @@ if ($LlamaRunning) {
         # Check if process has exited (crashed)
         if ($LlamaProc.HasExited) {
             Write-Host "[ERR] llama-server process exited with code $($LlamaProc.ExitCode)." -ForegroundColor Red
-            Write-Host "      This often means the port is already in use. Check with:" -ForegroundColor Yellow
-            Write-Host "      netstat -ano | findstr :$LlamaPort" -ForegroundColor Yellow
+            if (Test-Path $LogFile) {
+                Write-Host "      Log output:" -ForegroundColor Yellow
+                Get-Content $LogFile -Tail 10 | ForEach-Object { Write-Host "      $_" -ForegroundColor Yellow }
+            }
             exit 1
         }
         Start-Sleep -Seconds 1
@@ -109,6 +107,7 @@ if ($LlamaRunning) {
         exit 1
     }
     Write-Host "[OK] llama-server ready." -ForegroundColor Green
+    Remove-Item $BatchFile -ErrorAction SilentlyContinue
 }
 
 # ── Start Bonsai Chat ──
