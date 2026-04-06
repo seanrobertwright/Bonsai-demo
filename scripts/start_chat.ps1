@@ -32,13 +32,10 @@ if ($LASTEXITCODE -ne 0) {
 
 # ── Check if llama-server is already running ──
 $LlamaRunning = $false
-$prevEAP = $ErrorActionPreference
-$ErrorActionPreference = "Continue"
-try {
-    $resp = Invoke-WebRequest -Uri "http://localhost:$LlamaPort/health" -TimeoutSec 2 -UseBasicParsing -ErrorAction SilentlyContinue
-    if ($resp.StatusCode -eq 200) { $LlamaRunning = $true }
-} catch {}
-$ErrorActionPreference = $prevEAP
+$curlResult = curl.exe -s --max-time 2 "http://localhost:$LlamaPort/health" 2>$null
+if ($curlResult -match '"status"\s*:\s*"ok"') {
+    $LlamaRunning = $true
+}
 
 if ($LlamaRunning) {
     Write-Host "[OK] llama-server already running on port $LlamaPort" -ForegroundColor Green
@@ -87,10 +84,8 @@ if ($LlamaRunning) {
             exit 1
         }
         Start-Sleep -Seconds 1
-        try {
-            $resp = Invoke-WebRequest -Uri "http://localhost:$LlamaPort/health" -TimeoutSec 2 -UseBasicParsing -ErrorAction SilentlyContinue
-            if ($resp.StatusCode -eq 200) { $ready = $true; break }
-        } catch {}
+        $check = curl.exe -s --max-time 2 "http://localhost:$LlamaPort/health" 2>$null
+        if ($check -match '"status"\s*:\s*"ok"') { $ready = $true; break }
         # Print progress every 15 seconds
         if ($i -gt 0 -and $i % 15 -eq 0) {
             Write-Host "    Still loading... ($i seconds)" -ForegroundColor Yellow
