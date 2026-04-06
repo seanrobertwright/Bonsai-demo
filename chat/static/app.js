@@ -53,7 +53,7 @@ async function createNewChat() {
     await loadConversations();
     showChatView();
     clearMessages();
-    connectWebSocket(conv.id);
+    await connectWebSocket(conv.id);
 }
 
 async function openConversation(convId) {
@@ -64,7 +64,7 @@ async function openConversation(convId) {
     const resp = await fetch(`/api/conversations/${convId}/messages`);
     const messages = await resp.json();
     renderMessageHistory(messages);
-    connectWebSocket(convId);
+    await connectWebSocket(convId);
 }
 
 async function deleteConversation(convId) {
@@ -98,20 +98,24 @@ function clearMessages() {
 // ── WebSocket ──
 
 function connectWebSocket(convId) {
-    if (ws) {
-        ws.close();
-    }
-    const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-    ws = new WebSocket(`${protocol}//${location.host}/ws/chat/${convId}`);
+    return new Promise((resolve) => {
+        if (ws) {
+            ws.close();
+        }
+        const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+        ws = new WebSocket(`${protocol}//${location.host}/ws/chat/${convId}`);
 
-    ws.onmessage = (event) => {
-        const data = JSON.parse(event.data);
-        handleWSMessage(data);
-    };
+        ws.onopen = () => resolve();
 
-    ws.onclose = () => {
-        ws = null;
-    };
+        ws.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            handleWSMessage(data);
+        };
+
+        ws.onclose = () => {
+            ws = null;
+        };
+    });
 }
 
 // ── Message Handling ──
@@ -164,13 +168,12 @@ function handleWSMessage(data) {
 function sendMessage() {
     const input = document.getElementById('message-input');
     const text = input.value.trim();
-    if (!text || !ws) return;
+    if (!text) return;
 
-    if (!currentConvId) {
-        createNewChat().then(() => {
-            sendMessageText(text);
-        });
+    if (!currentConvId || !ws) {
+        // No active conversation — create one, connect WS, then send
         input.value = '';
+        createNewChat().then(() => sendMessageText(text));
         return;
     }
 
