@@ -161,6 +161,28 @@ uv pip install open-webui
 
 ---
 
+## Bonsai Chat (Agentic Assistant)
+
+A local ChatGPT-like assistant with built-in tools: web search, URL fetch, calculator, file manager, weather, and Python execution.
+
+### Windows (PowerShell)
+
+```powershell
+.\scripts\start_chat.ps1
+# Opens http://localhost:9090
+```
+
+### macOS / Linux
+
+```bash
+./scripts/start_chat.sh
+# Opens http://localhost:9090
+```
+
+The script auto-starts llama-server if it's not already running. No API keys needed — free providers (DuckDuckGo, Open-Meteo) work out of the box. Optionally configure SerpAPI or OpenWeatherMap keys in Settings.
+
+---
+
 ## Building from Source
 
 If you prefer to build llama.cpp from source instead of using pre-built binaries:

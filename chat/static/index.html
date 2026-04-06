@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bonsai Chat</title>
+    <link rel="stylesheet" href="/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+</head>
+<body>
+    <div id="app">
+        <!-- Sidebar -->
+        <aside id="sidebar">
+            <div class="sidebar-header">
+                <span class="logo">&#127793;</span>
+                <span class="logo-text">Bonsai Chat</span>
+            </div>
+            <button id="new-chat-btn" onclick="createNewChat()">+ New Chat</button>
+            <div id="conversation-list"></div>
+            <div class="sidebar-footer">
+                <button onclick="toggleSettings()">&#9881; Settings</button>
+            </div>
+        </aside>
+
+        <!-- Main chat area -->
+        <main id="chat-area">
+            <!-- Welcome screen -->
+            <div id="welcome" class="welcome">
+                <div class="welcome-icon">&#127793;</div>
+                <h1>Bonsai Chat</h1>
+                <p>A local AI assistant powered by Bonsai</p>
+                <div class="capabilities">
+                    <div class="cap">&#127760; Web Search</div>
+                    <div class="cap">&#128196; URL Fetch</div>
+                    <div class="cap">&#129518; Calculator</div>
+                    <div class="cap">&#128193; File Manager</div>
+                    <div class="cap">&#127783;&#65039; Weather</div>
+                    <div class="cap">&#128013; Python</div>
+                </div>
+            </div>
+
+            <!-- Messages container -->
+            <div id="messages"></div>
+
+            <!-- Input area -->
+            <div id="input-area">
+                <div class="input-container">
+                    <textarea id="message-input" placeholder="Message Bonsai..." rows="1"
+                        onkeydown="handleKeyDown(event)"></textarea>
+                    <div class="input-footer">
+                        <span class="model-label" id="model-label">Bonsai 8B</span>
+                        <button id="send-btn" onclick="sendMessage()">Send</button>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Tool panel -->
+        <aside id="tool-panel">
+            <div class="panel-section">
+                <h3>Tools</h3>
+                <div id="tool-list"></div>
+            </div>
+            <div class="panel-section">
+                <h3>This Conversation</h3>
+                <div id="tool-log">
+                    <p class="empty-state">No tool usage yet</p>
+                </div>
+            </div>
+            <div class="panel-section">
+                <h3>Artifacts</h3>
+                <div id="artifacts">
+                    <p class="empty-state">No files yet</p>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Settings modal -->
+        <div id="settings-modal" class="modal hidden">
+            <div class="modal-content">
+                <h2>Settings</h2>
+                <div class="setting">
+                    <label>SerpAPI Key (optional)</label>
+                    <input type="password" id="cfg-serpapi" placeholder="Leave blank for DuckDuckGo">
+                </div>
+                <div class="setting">
+                    <label>OpenWeatherMap Key (optional)</label>
+                    <input type="password" id="cfg-openweather" placeholder="Leave blank for Open-Meteo">
+                </div>
+                <div class="setting">
+                    <label>Sandbox Directory</label>
+                    <input type="text" id="cfg-sandbox">
+                </div>
+                <div class="modal-actions">
+                    <button onclick="saveSettings()">Save</button>
+                    <button onclick="toggleSettings()" class="secondary">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="/app.js"></script>
+</body>
+</html>
