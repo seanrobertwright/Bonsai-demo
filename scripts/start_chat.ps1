@@ -55,13 +55,16 @@ if ($LlamaRunning) {
         exit 1
     }
 
-    Write-Host "==> Starting llama-server (port $LlamaPort) ..." -ForegroundColor Cyan
+    # Context size: use BONSAI_CTX or default to 8192 for fast startup
+    $CtxSize = if ($env:BONSAI_CTX) { $env:BONSAI_CTX } else { "8192" }
+
+    Write-Host "==> Starting llama-server (port $LlamaPort, context $CtxSize) ..." -ForegroundColor Cyan
     $LlamaProc = Start-Process -FilePath $LlamaServer -ArgumentList @(
         "-m", $ModelFile.FullName,
         "--host", "127.0.0.1",
         "--port", $LlamaPort,
         "-ngl", "99",
-        "-c", "0",
+        "-c", $CtxSize,
         "--temp", "0.5",
         "--top-p", "0.85",
         "--top-k", "20",
@@ -71,18 +74,28 @@ if ($LlamaRunning) {
         "--chat-template-kwargs", '{"enable_thinking": false}'
     ) -PassThru -WindowStyle Minimized
 
-    # Wait for server to be ready
-    Write-Host "    Waiting for llama-server to be ready ..." -ForegroundColor Cyan
+    # Wait for server to be ready (up to 120 seconds — model loading can be slow)
+    Write-Host "    Waiting for llama-server to be ready (this may take a minute) ..." -ForegroundColor Cyan
     $ready = $false
-    for ($i = 0; $i -lt 60; $i++) {
+    for ($i = 0; $i -lt 120; $i++) {
+        # Check if process has exited (crashed)
+        if ($LlamaProc.HasExited) {
+            Write-Host "[ERR] llama-server process exited with code $($LlamaProc.ExitCode)." -ForegroundColor Red
+            exit 1
+        }
         Start-Sleep -Seconds 1
         try {
             $resp = Invoke-WebRequest -Uri "http://localhost:$LlamaPort/health" -TimeoutSec 2 -UseBasicParsing -ErrorAction SilentlyContinue
             if ($resp.StatusCode -eq 200) { $ready = $true; break }
         } catch {}
+        # Print progress every 15 seconds
+        if ($i -gt 0 -and $i % 15 -eq 0) {
+            Write-Host "    Still loading... ($i seconds)" -ForegroundColor Yellow
+        }
     }
     if (-not $ready) {
-        Write-Host "[ERR] llama-server failed to start within 60 seconds." -ForegroundColor Red
+        Write-Host "[ERR] llama-server failed to start within 120 seconds." -ForegroundColor Red
+        Write-Host "      Try: `$env:BONSAI_CTX = '4096'; .\scripts\start_chat.ps1  (smaller context = faster startup)" -ForegroundColor Yellow
         exit 1
     }
     Write-Host "[OK] llama-server ready." -ForegroundColor Green
