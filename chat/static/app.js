@@ -165,21 +165,24 @@ function handleWSMessage(data) {
     }
 }
 
-function sendMessage() {
+async function sendMessage() {
     const input = document.getElementById('message-input');
     const text = input.value.trim();
     if (!text) return;
 
-    if (!currentConvId || !ws) {
-        // No active conversation — create one, connect WS, then send
-        input.value = '';
-        createNewChat().then(() => sendMessageText(text));
-        return;
-    }
-
-    sendMessageText(text);
     input.value = '';
     input.style.height = 'auto';
+
+    try {
+        if (!currentConvId || !ws || ws.readyState !== WebSocket.OPEN) {
+            // No active conversation — create one, connect WS, then send
+            await createNewChat();
+        }
+        sendMessageText(text);
+    } catch (e) {
+        console.error('sendMessage error:', e);
+        appendSystemMessage('Failed to send message: ' + e.message);
+    }
 }
 
 function sendMessageText(text) {
@@ -378,5 +381,10 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
+// ── Error handling ──
+window.onerror = function(msg, url, line) {
+    console.error(`JS Error: ${msg} at ${url}:${line}`);
+};
+
 // ── Start ──
-init();
+init().catch(e => console.error('init error:', e));

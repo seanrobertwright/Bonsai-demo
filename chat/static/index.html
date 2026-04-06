@@ -4,8 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Bonsai Chat</title>
-    <link rel="stylesheet" href="/style.css">
+    <link rel="stylesheet" href="/style.css?v=2">
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script>
+        // Fallback if CDN fails
+        if (typeof marked === 'undefined') {
+            window.marked = { parse: function(text) { return text.replace(/\n/g, '<br>'); } };
+        }
+    </script>
 </head>
 <body>
     <div id="app">
@@ -98,6 +104,6 @@
             </div>
         </div>
     </div>
-    <script src="/app.js"></script>
+    <script src="/app.js?v=2"></script>
 </body>
 </html>
