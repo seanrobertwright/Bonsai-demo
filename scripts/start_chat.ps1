@@ -16,6 +16,21 @@ Write-Host "   Model: $BonsaiModel"
 Write-Host "========================================="
 Write-Host ""
 
+# ── Helper: check if llama-server health endpoint responds ──
+function Test-LlamaHealth {
+    try {
+        $tcp = New-Object System.Net.Sockets.TcpClient
+        $tcp.Connect("127.0.0.1", [int]$LlamaPort)
+        $tcp.Close()
+        # Port is open — try HTTP health check
+        $wc = New-Object System.Net.WebClient
+        $body = $wc.DownloadString("http://localhost:$LlamaPort/health")
+        return ($body -match '"ok"')
+    } catch {
+        return $false
+    }
+}
+
 # ── Check venv exists ──
 if (-not (Test-Path $VenvPy)) {
     Write-Host "[ERR] Python venv not found. Run .\setup.ps1 first." -ForegroundColor Red
@@ -31,11 +46,7 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 # ── Check if llama-server is already running ──
-$LlamaRunning = $false
-$curlResult = curl.exe -s --max-time 2 "http://localhost:$LlamaPort/health" 2>$null
-if ($curlResult -match '"status"\s*:\s*"ok"') {
-    $LlamaRunning = $true
-}
+$LlamaRunning = Test-LlamaHealth
 
 if ($LlamaRunning) {
     Write-Host "[OK] llama-server already running on port $LlamaPort" -ForegroundColor Green
@@ -81,11 +92,12 @@ if ($LlamaRunning) {
         # Check if process has exited (crashed)
         if ($LlamaProc.HasExited) {
             Write-Host "[ERR] llama-server process exited with code $($LlamaProc.ExitCode)." -ForegroundColor Red
+            Write-Host "      This often means the port is already in use. Check with:" -ForegroundColor Yellow
+            Write-Host "      netstat -ano | findstr :$LlamaPort" -ForegroundColor Yellow
             exit 1
         }
         Start-Sleep -Seconds 1
-        $check = curl.exe -s --max-time 2 "http://localhost:$LlamaPort/health" 2>$null
-        if ($check -match '"status"\s*:\s*"ok"') { $ready = $true; break }
+        if (Test-LlamaHealth) { $ready = $true; break }
         # Print progress every 15 seconds
         if ($i -gt 0 -and $i % 15 -eq 0) {
             Write-Host "    Still loading... ($i seconds)" -ForegroundColor Yellow
