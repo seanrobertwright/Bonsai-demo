@@ -32,10 +32,13 @@ if ($LASTEXITCODE -ne 0) {
 
 # ── Check if llama-server is already running ──
 $LlamaRunning = $false
+$prevEAP = $ErrorActionPreference
+$ErrorActionPreference = "Continue"
 try {
     $resp = Invoke-WebRequest -Uri "http://localhost:$LlamaPort/health" -TimeoutSec 2 -UseBasicParsing -ErrorAction SilentlyContinue
     if ($resp.StatusCode -eq 200) { $LlamaRunning = $true }
 } catch {}
+$ErrorActionPreference = $prevEAP
 
 if ($LlamaRunning) {
     Write-Host "[OK] llama-server already running on port $LlamaPort" -ForegroundColor Green
