@@ -16,7 +16,7 @@ chat = [
     "uvicorn[standard]>=0.34.0",
     "websockets>=14.0",
     "beautifulsoup4>=4.13.0",
-    "duckduckgo-search>=7.0.0",
+    "ddgs>=7.0.0",
     "sympy>=1.13.0",
 ]
 

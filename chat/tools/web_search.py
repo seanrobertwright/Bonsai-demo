@@ -33,7 +33,7 @@ class WebSearchTool:
 
     async def _ddg_search(self, query: str) -> dict:
         try:
-            from duckduckgo_search import DDGS
+            from ddgs import DDGS
 
             with DDGS() as ddgs:
                 raw = list(ddgs.text(query, max_results=5))

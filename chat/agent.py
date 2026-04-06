@@ -27,17 +27,24 @@ class AgentLoop:
 
         return (
             "You are Bonsai, a helpful AI assistant running locally. "
-            "You have access to the following tools:\n\n"
+            "You have access to tools and MUST use them when the user's question requires "
+            "current information, calculations, file operations, or code execution.\n\n"
+            "IMPORTANT RULES:\n"
+            "- If the user asks about current events, versions, weather, or anything time-sensitive, "
+            "you MUST use the web_search tool. Do NOT say you don't have access to real-time information.\n"
+            "- If the user asks you to fetch a URL, use the url_fetch tool.\n"
+            "- If the user asks for math or calculations, use the calculator tool.\n"
+            "- If the user asks about weather, use the weather tool.\n"
+            "- If the user asks to read/write files, use the file_io tool.\n"
+            "- If the user asks to run code, use the python_exec tool.\n\n"
+            "Available tools:\n\n"
             + "\n".join(tool_docs)
             + "\n\n"
-            "To use a tool, output a JSON object with 'name' and 'arguments' fields in a ```json code block. "
-            "Example:\n"
-            "```json\n"
-            '{"name": "web_search", "arguments": {"query": "your search query"}}\n'
-            "```\n\n"
-            "You can call multiple tools by outputting multiple JSON blocks. "
-            "After tool results are provided, use them to give a helpful response. "
-            "Only use tools when needed — if you can answer directly, do so."
+            "To use a tool, output ONLY a JSON object (no other text before it) with 'name' and 'arguments' fields:\n"
+            '{"name": "web_search", "arguments": {"query": "your search query"}}\n\n'
+            "After you receive the tool results, write a helpful response using that information. "
+            "Do NOT output the JSON tool call and a response in the same message — "
+            "output ONLY the JSON tool call, wait for results, then respond."
         )
 
     def _format_tool_result(self, tool_name: str, result: dict) -> str:
@@ -65,22 +72,20 @@ class AgentLoop:
         full_messages = [{"role": "system", "content": system_prompt}] + messages
 
         for round_num in range(MAX_TOOL_ROUNDS + 1):
-            # Call model and collect full response
+            # Collect full response first (don't stream yet — need to check for tool calls)
             full_response = ""
             async for token in self._stream_completion(full_messages):
                 full_response += token
-                if on_token and round_num == 0:
-                    # Only stream first round to user (before tool calls)
-                    await on_token(token)
 
             # Parse for tool calls
             tool_calls = parse_tool_calls(full_response, self.registry.list_names())
 
             if not tool_calls or round_num == MAX_TOOL_ROUNDS:
-                # No tools to call (or hit max rounds) — done
-                if round_num > 0 and on_token:
-                    # Stream the final response after tool execution
-                    for char in full_response:
+                # No tools to call (or hit max rounds) — stream response to user
+                if on_token:
+                    # Strip any leftover JSON tool call attempts from the response
+                    display_text = self._strip_tool_json(full_response)
+                    for char in display_text:
                         await on_token(char)
                 return {"content": full_response, "tool_calls": all_tool_calls}
 
@@ -106,9 +111,15 @@ class AgentLoop:
                     "content": self._format_tool_result(tc["name"], result),
                 })
 
-            # Signal tool execution happened
-            if round_num == 0 and on_token:
-                await on_token("\n\n")
+    @staticmethod
+    def _strip_tool_json(text: str) -> str:
+        """Remove JSON tool call blocks from text meant for display."""
+        import re
+        # Remove ```json ... ``` blocks containing tool calls
+        text = re.sub(r'```(?:json)?\s*\n?\{[^}]*"name"\s*:.*?\}.*?```', '', text, flags=re.DOTALL)
+        # Remove bare JSON tool calls
+        text = re.sub(r'\{[^{}]*"name"\s*:\s*"[^"]+"\s*,\s*"arguments"\s*:\s*\{[^}]*\}[^}]*\}', '', text)
+        return text.strip()
 
     async def _stream_completion(self, messages: list[dict]) -> AsyncGenerator[str, None]:
         """Stream tokens from llama-server's /v1/chat/completions endpoint."""
