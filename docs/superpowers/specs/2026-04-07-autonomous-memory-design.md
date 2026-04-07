@@ -156,14 +156,21 @@ The agent loop already emits `tool_start` / `tool_end` events over the WebSocket
 **Manual smoke test** (documented here, not automated):
 1. Tell the real model "I live in Boston." Confirm a toast appears and the memory panel shows the entry.
 2. Start a new conversation, ask "where do I live?" Confirm the model answers "Boston" without being told again.
-3. Tell it "actually I moved to Seattle." Confirm the Boston entry gets replaced, not duplicated.
+3. Tell it "actually I moved to Seattle." Confirm both entries coexist (Boston and Seattle), and that in chat the model answers "Seattle" because of the "trust the most recent" tie-breaker in Section *Backend: recall injection*. Note for the user: the stale Boston entry can be deleted from the memory panel.
 
 Frontend toast behavior is manual-only — no JS test harness exists in the project, and adding one is out of scope.
 
+## Implementation notes
+
+**Prefix-signature dedup was dropped during implementation.** The original design included a second dedup layer (a 4-significant-word stem-prefix signature) meant to catch "User lives in Boston" → "User lives in Seattle" as a replacement rather than a duplicate. In practice the heuristic was unworkable at v1 quality: the naive version failed its own tests because cities stem to distinct tokens, and the minimum fix to make it pass (dropping the last significant word) over-generalized — two unrelated facts sharing a verb stem (e.g. "User prefers Python" vs "User prefers Vim") would collapse into one row and destroy a good memory. Implemented and reverted in commits `172a737` and `8989016`.
+
+Consequence: the memory store now relies on exact-match dedup only (Task 3). Semantic updates like "moved to Seattle" leave both the old and new rows in place. The Task 8 "trust the most recent" tie-breaker in the injected system prompt handles contradictions at chat time, and stale rows can be pruned via the existing memory panel UI. If false-positive duplicates pile up in real use, the right escalation is embedding-based semantic dedup — real machinery, actually sound — not another handcrafted heuristic.
+
 ## Non-goals / deferred
 
-- **Semantic dedup via embeddings.** Revisit if prefix-dedup false-negatives become visibly annoying.
-- **Model-driven update/forget tools.** Revisit if server-side dedup misses too often.
+- **Prefix-signature dedup.** Tried and reverted (see Implementation notes). Embedding-based semantic dedup is the proper v2 path if this becomes a real pain point.
+- **Semantic dedup via embeddings.** Deferred until v1 reveals whether exact-match alone is sufficient.
+- **Model-driven update/forget tools.** Revisit if exact-match dedup misses too often.
 - **Per-conversation memory scoping.** Memories stay global.
 - **Retrieval / top-K recall.** Revisit if cap=50 proves too small or too expensive.
 - **Memory categories / tags.** The `source` column is the only metadata; further taxonomy is speculative.

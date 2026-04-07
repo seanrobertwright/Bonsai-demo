@@ -285,7 +285,9 @@ git commit -m "feat(db): exact-match dedup in add_memory"
 
 ---
 
-### Task 4: Prefix dedup (replace on update)
+### Task 4: Prefix dedup (replace on update) — **DROPPED**
+
+> **Status:** Attempted in commit `172a737`, reverted in `8989016`. The heuristic was unworkable at v1 quality — see `docs/superpowers/specs/2026-04-07-autonomous-memory-design.md` § Implementation notes. Exact-match dedup from Task 3 is the only dedup layer in the shipped feature. The rest of this Task 4 section is preserved below as a historical record of the attempted approach; skip directly to Task 5.
 
 **Files:**
 - Modify: `chat/db.py` — add prefix-signature helper + replace logic
