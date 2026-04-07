@@ -184,17 +184,22 @@ class ChatDB:
             "INSERT INTO memories (id, content, created_at, source) VALUES (?, ?, ?, ?)",
             (mid, content, now, source),
         )
-        # Auto-prune to 50 (FIFO across all sources)
+        # Auto-prune to 50 (FIFO across all sources). Tiebreak on rowid so
+        # rapid inserts with identical ISO timestamps still evict in
+        # insertion order rather than implementation-defined order.
         self.conn.execute("""
             DELETE FROM memories WHERE id NOT IN (
-                SELECT id FROM memories ORDER BY created_at DESC LIMIT 50
+                SELECT id FROM memories ORDER BY created_at DESC, rowid DESC LIMIT 50
             )
         """)
         self.conn.commit()
         return {"id": mid, "content": content, "created_at": now, "source": source}
 
     def list_memories(self) -> list[dict]:
-        rows = self.conn.execute("SELECT * FROM memories ORDER BY created_at DESC").fetchall()
+        # rowid tiebreak makes ordering deterministic when ISO timestamps collide.
+        rows = self.conn.execute(
+            "SELECT * FROM memories ORDER BY created_at DESC, rowid DESC"
+        ).fetchall()
         return [dict(r) for r in rows]
 
     def delete_memory(self, memory_id: str) -> None:
