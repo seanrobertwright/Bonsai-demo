@@ -46,6 +46,13 @@ async def create_conversation():
     return db.create_conversation("New Chat")
 
 
+@app.get("/api/conversations/search")
+async def search_conversations(q: str = ""):
+    if not q.strip():
+        return []
+    return db.search_conversations(q)
+
+
 @app.get("/api/conversations/{conv_id}/messages")
 async def get_messages(conv_id: str):
     return db.get_messages(conv_id)

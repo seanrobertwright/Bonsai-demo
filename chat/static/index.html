@@ -58,7 +58,7 @@
             <div id="input-area">
                 <div class="input-container">
                     <textarea id="message-input" placeholder="Message Bonsai..." rows="1"
-                        onkeydown="handleKeyDown(event)"></textarea>
+                        onkeydown="handleInputKeyDown(event)"></textarea>
                     <div class="input-footer">
                         <span class="model-label" id="model-label">Bonsai 8B</span>
                         <button id="send-btn" onclick="sendMessage()">Send</button>
@@ -87,6 +87,30 @@
             </div>
         </aside>
 
+        <!-- Search overlay -->
+        <div id="search-overlay" class="overlay hidden">
+            <div class="overlay-content search-content">
+                <input type="text" id="search-input" placeholder="Search conversations..." oninput="handleSearch(this.value)">
+                <div id="search-results"></div>
+            </div>
+        </div>
+
+        <!-- Shortcuts help -->
+        <div id="shortcuts-help" class="modal hidden">
+            <div class="modal-content" style="width:340px">
+                <h2>Keyboard Shortcuts</h2>
+                <div class="shortcut-list">
+                    <div class="shortcut-row"><kbd>Ctrl+K</kbd><span>Search conversations</span></div>
+                    <div class="shortcut-row"><kbd>Ctrl+N</kbd><span>New chat</span></div>
+                    <div class="shortcut-row"><kbd>Ctrl+Shift+&larr;</kbd><span>Delete conversation</span></div>
+                    <div class="shortcut-row"><kbd>Escape</kbd><span>Close overlay</span></div>
+                    <div class="shortcut-row"><kbd>&uarr;</kbd><span>Edit last message</span></div>
+                    <div class="shortcut-row"><kbd>?</kbd><span>Show this help</span></div>
+                </div>
+                <div class="modal-actions"><button onclick="toggleShortcutsHelp()" class="secondary">Close</button></div>
+            </div>
+        </div>
+
         <!-- Settings modal -->
         <div id="settings-modal" class="modal hidden">
             <div class="modal-content">
@@ -114,6 +138,8 @@
     <script src="/js/conversations.js?v=6"></script>
     <script src="/js/settings.js?v=6"></script>
     <script src="/js/controls.js?v=6"></script>
+    <script src="/js/stats.js?v=6"></script>
+    <script src="/js/shortcuts.js?v=6"></script>
     <script src="/js/core.js?v=6"></script>
 </body>
 </html>

@@ -122,6 +122,23 @@ function appendMessage(role, content) {
     return div;
 }
 
+function createSkeleton() {
+    const messages = document.getElementById('messages');
+    const div = document.createElement('div');
+    div.className = 'skeleton';
+    div.innerHTML = `
+        <div class="avatar bot-avatar">&#127793;</div>
+        <div class="skeleton-lines">
+            <div class="skeleton-line"></div>
+            <div class="skeleton-line"></div>
+            <div class="skeleton-line"></div>
+        </div>
+    `;
+    messages.appendChild(div);
+    scrollToBottom();
+    return div;
+}
+
 function appendSystemMessage(text) {
     const messages = document.getElementById('messages');
     const div = document.createElement('div');

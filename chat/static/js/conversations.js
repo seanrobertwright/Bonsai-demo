@@ -75,3 +75,34 @@ function clearMessages() {
     document.getElementById('tool-log').innerHTML = '<p class="empty-state">No tool usage yet</p>';
     document.getElementById('artifacts').innerHTML = '<p class="empty-state">No files yet</p>';
 }
+
+/* ── Conversation Search ── */
+
+let searchDebounce = null;
+
+async function handleSearch(query) {
+    clearTimeout(searchDebounce);
+    if (!query.trim()) {
+        document.getElementById('search-results').innerHTML = '<p class="empty-state" style="padding:16px">Type to search...</p>';
+        return;
+    }
+    searchDebounce = setTimeout(async () => {
+        const resp = await fetch(`/api/conversations/search?q=${encodeURIComponent(query)}`);
+        const results = await resp.json();
+        const container = document.getElementById('search-results');
+        if (results.length === 0) {
+            container.innerHTML = '<p class="empty-state" style="padding:16px">No results found</p>';
+            return;
+        }
+        container.innerHTML = results.map(r => {
+            const highlighted = r.snippet.replace(
+                new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi'),
+                '<mark>$1</mark>'
+            );
+            return `<div class="search-result" onclick="openConversation('${r.id}'); closeAllOverlays();">
+                <div class="search-title">${escapeHtml(r.title)}</div>
+                <div class="search-snippet">${highlighted}</div>
+            </div>`;
+        }).join('');
+    }, 200);
+}

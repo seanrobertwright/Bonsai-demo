@@ -28,9 +28,17 @@ function connectWebSocket(convId) {
 function handleWSMessage(data) {
     switch (data.type) {
         case 'token':
+            trackToken();
             if (!currentAssistantEl) {
-                currentAssistantEl = appendMessage('assistant', '');
+                // Show skeleton first
+                currentAssistantEl = createSkeleton();
                 currentAssistantText = '';
+            }
+            // Replace skeleton with real content on first token
+            if (currentAssistantEl.classList.contains('skeleton')) {
+                const realMsg = appendMessage('assistant', '');
+                currentAssistantEl.remove();
+                currentAssistantEl = realMsg;
             }
             currentAssistantText += data.content;
             const contentEl = currentAssistantEl.querySelector('.message-content');
@@ -59,6 +67,10 @@ function handleWSMessage(data) {
                 finalEl.innerHTML = marked.parse(preprocessMarkdown(currentAssistantText));
                 enhanceCodeBlocks(finalEl);
             }
+            if (currentAssistantEl) {
+                renderStats(currentAssistantEl);
+            }
+            resetStreamStats();
             currentAssistantEl = null;
             currentAssistantText = '';
             const doneBtn = document.getElementById('send-btn');
@@ -95,6 +107,7 @@ async function sendMessage() {
 }
 
 function sendMessageText(text) {
+    resetStreamStats();
     appendMessage('user', text);
     const btn = document.getElementById('send-btn');
     btn.disabled = false;  // Keep enabled as Stop
@@ -120,7 +133,10 @@ function handleKeyDown(event) {
 
 function scrollToBottom() {
     const messages = document.getElementById('messages');
-    messages.scrollTop = messages.scrollHeight;
+    const lastChild = messages.lastElementChild;
+    if (lastChild) {
+        lastChild.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    }
 }
 
 function escapeHtml(text) {

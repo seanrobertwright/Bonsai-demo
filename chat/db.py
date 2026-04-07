@@ -89,6 +89,31 @@ class ChatDB:
             result.append(d)
         return result
 
+    def search_conversations(self, query: str) -> list[dict]:
+        """Full-text search across conversation titles and message content."""
+        like_query = f"%{query}%"
+        rows = self.conn.execute("""
+            SELECT DISTINCT c.id, c.title, c.updated_at, m.content as snippet
+            FROM conversations c
+            LEFT JOIN messages m ON m.conversation_id = c.id
+            WHERE c.title LIKE ? OR m.content LIKE ?
+            ORDER BY c.updated_at DESC
+            LIMIT 20
+        """, (like_query, like_query)).fetchall()
+
+        results = []
+        seen = set()
+        for r in rows:
+            if r["id"] not in seen:
+                seen.add(r["id"])
+                results.append({
+                    "id": r["id"],
+                    "title": r["title"],
+                    "snippet": r["snippet"][:120] if r["snippet"] else "",
+                    "updated_at": r["updated_at"],
+                })
+        return results
+
     def delete_last_assistant_message(self, conversation_id: str) -> str | None:
         """Delete the last assistant message. Returns the last user message content for re-sending."""
         row = self.conn.execute(
