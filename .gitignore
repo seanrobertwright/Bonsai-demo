@@ -224,3 +224,6 @@ chat/config.json
 .superpowers/
 llama-server-start.cmd
 llama-server.log
+
+# Git worktrees
+.worktrees/
