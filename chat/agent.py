@@ -36,7 +36,8 @@ class AgentLoop:
             "- If the user asks for math or calculations, use the calculator tool.\n"
             "- If the user asks about weather, use the weather tool.\n"
             "- If the user asks to read/write files, use the file_io tool.\n"
-            "- If the user asks to run code, use the python_exec tool.\n\n"
+            "- If the user asks to run code, use the python_exec tool.\n"
+            "- If the user just shared a durable fact about themselves (location, job, family, a long-running project, a preference for how you behave) that isn't already in 'Things you know about the user', you MAY use the remember tool ONCE to save it. Most turns should NOT save anything; when in doubt, don't save.\n\n"
             "Available tools:\n\n"
             + "\n".join(tool_docs)
             + "\n\n"
