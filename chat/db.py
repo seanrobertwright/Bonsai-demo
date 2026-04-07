@@ -1,51 +1,9 @@
 """SQLite storage for conversations and messages."""
 
 import json
-import re
 import sqlite3
 import uuid
 from datetime import datetime, timezone
-
-
-_STOPWORDS = {"the", "a", "an", "is", "am", "are", "was", "were",
-              "user", "i", "my", "me", "you", "your", "to", "of",
-              "in", "on", "at", "and", "or"}
-
-
-def _prefix_signature(content: str, n: int = 4) -> str:
-    """Normalize content and return a prefix signature for dedup.
-
-    Used for catching "User lives in Boston" -> "User lives in Seattle" as
-    updates to the same underlying fact. Lowercases, strips punctuation,
-    drops stopwords, stems *-s/-es/-ing/-e endings very crudely, takes the
-    first N significant words, then drops the trailing word when the
-    remainder still has at least one word. Dropping the trailing word is
-    what makes "lives in Boston" and "lives in Seattle" collide on "liv"
-    without requiring the helper to know anything about proper nouns.
-    """
-    tokens = re.findall(r"[a-z]+", content.lower())
-    significant = []
-    for t in tokens:
-        if t in _STOPWORDS:
-            continue
-        # Crude stem: strip trailing ing/es/s/e so "lives"/"live"/"living" match.
-        if t.endswith("ing") and len(t) > 4:
-            t = t[:-3]
-        elif t.endswith("es") and len(t) > 3:
-            t = t[:-2]
-        elif t.endswith("s") and len(t) > 2:
-            t = t[:-1]
-        if t.endswith("e") and len(t) > 3:
-            t = t[:-1]
-        significant.append(t)
-        if len(significant) >= n:
-            break
-    # Drop the trailing significant word when at least one remains. This
-    # peels off the "variable" part of a fact (the city, the preference,
-    # the value) so that updates collide with their prior statement.
-    if len(significant) > 1:
-        significant = significant[:-1]
-    return " ".join(significant)
 
 
 class ChatDB:
@@ -221,8 +179,7 @@ class ChatDB:
 
     def add_memory(self, content: str, source: str = "user") -> dict:
         now = datetime.now(timezone.utc).isoformat()
-        stored = content.strip()
-        normalized = stored.lower()
+        normalized = content.strip().lower()
 
         # 1. Exact-match dedup (case- and whitespace-insensitive)
         existing = self.conn.execute(
@@ -232,22 +189,9 @@ class ChatDB:
         if existing:
             return {"status": "duplicate", "id": existing["id"]}
 
-        # 2. Prefix-signature dedup -- replace an existing memory with the same
-        # 4-significant-word prefix (catches "lives in Boston" -> "lives in Seattle").
-        new_sig = _prefix_signature(stored)
-        replaced_id = None
-        replaced_content = None
-        if new_sig:  # skip if signature is empty (too few significant words)
-            rows = self.conn.execute("SELECT id, content FROM memories").fetchall()
-            for r in rows:
-                if _prefix_signature(r["content"]) == new_sig:
-                    replaced_id = r["id"]
-                    replaced_content = r["content"]
-                    self.conn.execute("DELETE FROM memories WHERE id = ?", (replaced_id,))
-                    break
-
-        # 3. Fresh insert
+        # 2. Fresh insert
         mid = str(uuid.uuid4())
+        stored = content.strip()
         self.conn.execute(
             "INSERT INTO memories (id, content, created_at, source) VALUES (?, ?, ?, ?)",
             (mid, stored, now, source),
@@ -261,17 +205,6 @@ class ChatDB:
             )
         """)
         self.conn.commit()
-
-        if replaced_id:
-            return {
-                "status": "updated",
-                "id": mid,
-                "content": stored,
-                "created_at": now,
-                "source": source,
-                "replaced_id": replaced_id,
-                "replaced_content": replaced_content,
-            }
         return {
             "status": "saved",
             "id": mid,
