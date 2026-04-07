@@ -56,6 +56,9 @@ function handleWSMessage(data) {
         case 'tool_end':
             updateToolPill(data.name, 'completed');
             updateToolLog(data.name, data.result);
+            if (data.name === 'remember' && typeof window.showMemoryToast === 'function') {
+                window.showMemoryToast(data.result);
+            }
             break;
 
         case 'title_update':
