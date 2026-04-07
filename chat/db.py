@@ -51,6 +51,12 @@ class ChatDB:
                 created_at TEXT NOT NULL
             );
         """)
+        try:
+            self.conn.execute(
+                "ALTER TABLE memories ADD COLUMN source TEXT NOT NULL DEFAULT 'user'"
+            )
+        except sqlite3.OperationalError:
+            pass
         self.conn.commit()
 
     def create_conversation(self, title: str) -> dict:
@@ -171,18 +177,21 @@ class ChatDB:
             )
             self.conn.commit()
 
-    def add_memory(self, content: str) -> dict:
+    def add_memory(self, content: str, source: str = "user") -> dict:
         mid = str(uuid.uuid4())
         now = datetime.now(timezone.utc).isoformat()
-        self.conn.execute("INSERT INTO memories (id, content, created_at) VALUES (?, ?, ?)", (mid, content, now))
-        # Auto-prune to 20
+        self.conn.execute(
+            "INSERT INTO memories (id, content, created_at, source) VALUES (?, ?, ?, ?)",
+            (mid, content, now, source),
+        )
+        # Auto-prune to 50 (FIFO across all sources)
         self.conn.execute("""
             DELETE FROM memories WHERE id NOT IN (
-                SELECT id FROM memories ORDER BY created_at DESC LIMIT 20
+                SELECT id FROM memories ORDER BY created_at DESC LIMIT 50
             )
         """)
         self.conn.commit()
-        return {"id": mid, "content": content, "created_at": now}
+        return {"id": mid, "content": content, "created_at": now, "source": source}
 
     def list_memories(self) -> list[dict]:
         rows = self.conn.execute("SELECT * FROM memories ORDER BY created_at DESC").fetchall()
