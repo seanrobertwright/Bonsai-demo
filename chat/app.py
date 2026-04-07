@@ -329,7 +329,11 @@ async def websocket_chat(ws: WebSocket, conv_id: str):
                 # Show oldest-first so the most recent fact appears last —
                 # the tie-breaker instruction below then just means "trust the last one."
                 memories_oldest_first = list(reversed(memories))
-                custom_context += "Things you know about the user:\n"
+                custom_context += (
+                    "Facts you already know about the user. These are TRUE — "
+                    "treat them as given and use them to personalize your replies. "
+                    "Do NOT claim you don't know or don't remember these facts:\n"
+                )
                 custom_context += "\n".join(f"- {m['content']}" for m in memories_oldest_first)
                 custom_context += (
                     "\n\n(If two of the facts above contradict each other, "
