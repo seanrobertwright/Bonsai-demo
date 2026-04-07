@@ -31,6 +31,15 @@ class ChatDB:
             );
         """)
         self.conn.execute("PRAGMA foreign_keys = ON")
+        # Add columns if missing (migrations)
+        try:
+            self.conn.execute("ALTER TABLE messages ADD COLUMN attachments TEXT")
+        except sqlite3.OperationalError:
+            pass
+        try:
+            self.conn.execute("ALTER TABLE conversations ADD COLUMN pinned INTEGER DEFAULT 0")
+        except sqlite3.OperationalError:
+            pass
         self.conn.commit()
 
     def create_conversation(self, title: str) -> dict:
@@ -45,9 +54,16 @@ class ChatDB:
 
     def list_conversations(self) -> list[dict]:
         rows = self.conn.execute(
-            "SELECT * FROM conversations ORDER BY updated_at DESC"
+            "SELECT * FROM conversations ORDER BY pinned DESC, updated_at DESC"
         ).fetchall()
         return [dict(r) for r in rows]
+
+    def toggle_pin(self, conversation_id: str) -> bool:
+        row = self.conn.execute("SELECT pinned FROM conversations WHERE id = ?", (conversation_id,)).fetchone()
+        new_val = 0 if row and row["pinned"] else 1
+        self.conn.execute("UPDATE conversations SET pinned = ? WHERE id = ?", (new_val, conversation_id))
+        self.conn.commit()
+        return bool(new_val)
 
     def update_title(self, conversation_id: str, title: str) -> None:
         now = datetime.now(timezone.utc).isoformat()

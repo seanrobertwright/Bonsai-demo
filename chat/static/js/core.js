@@ -42,7 +42,7 @@ function handleWSMessage(data) {
             }
             currentAssistantText += data.content;
             const contentEl = currentAssistantEl.querySelector('.message-content');
-            contentEl.innerHTML = marked.parse(preprocessMarkdown(currentAssistantText));
+            contentEl.innerHTML = renderLatex(marked.parse(preprocessMarkdown(currentAssistantText)));
             enhanceCodeBlocks(contentEl);
             scrollToBottom();
             break;
@@ -64,7 +64,7 @@ function handleWSMessage(data) {
         case 'done':
             if (currentAssistantEl && currentAssistantText) {
                 const finalEl = currentAssistantEl.querySelector('.message-content');
-                finalEl.innerHTML = marked.parse(preprocessMarkdown(currentAssistantText));
+                finalEl.innerHTML = renderLatex(marked.parse(preprocessMarkdown(currentAssistantText)));
                 enhanceCodeBlocks(finalEl);
             }
             if (currentAssistantEl) {
@@ -108,14 +108,18 @@ async function sendMessage() {
 
 function sendMessageText(text) {
     resetStreamStats();
-    appendMessage('user', text);
+    const attachmentContext = getAttachmentContext();
+    const fullContent = attachmentContext ? attachmentContext + text : text;
+
+    appendMessage('user', text);  // Show user's text only in UI
     const btn = document.getElementById('send-btn');
     btn.disabled = false;  // Keep enabled as Stop
     btn.textContent = 'Stop';
     btn.classList.add('stop-btn');
     btn.onclick = stopGeneration;
     document.getElementById('message-input').disabled = true;
-    ws.send(JSON.stringify({ content: text }));
+    ws.send(JSON.stringify({ content: fullContent }));
+    clearAttachments();
     scrollToBottom();
 }
 

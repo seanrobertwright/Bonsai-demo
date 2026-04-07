@@ -688,3 +688,131 @@ body {
     font-size: 12px;
     font-family: monospace;
 }
+
+/* ── File uploads ── */
+.input-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+}
+.input-row textarea { flex: 1; }
+.attach-btn {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 4px;
+    margin-top: 2px;
+    flex-shrink: 0;
+}
+.attach-btn:hover { color: var(--text-secondary); }
+
+#attachment-preview {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 8px;
+}
+.attachment-chip {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--bg-primary);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 4px 8px;
+    font-size: 12px;
+}
+.attachment-chip button {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 14px;
+}
+.attachment-chip button:hover { color: var(--text-primary); }
+
+/* Drag-drop zone */
+#chat-area.drag-over::after {
+    content: 'Drop file here';
+    position: absolute;
+    inset: 0;
+    background: rgba(88, 166, 255, 0.08);
+    border: 2px dashed var(--accent-blue);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    color: var(--accent-blue);
+    z-index: 50;
+    border-radius: 8px;
+    margin: 8px;
+}
+#chat-area { position: relative; }
+
+/* ── LaTeX ── */
+.latex-error {
+    color: var(--accent-orange);
+    background: var(--accent-orange-bg);
+    padding: 2px 6px;
+    border-radius: 3px;
+}
+.katex-display {
+    margin: 12px 0;
+    overflow-x: auto;
+}
+
+/* ── Conversation item menu ── */
+.conv-item {
+    display: flex;
+    align-items: center;
+    position: relative;
+}
+.conv-title { flex: 1; overflow: hidden; text-overflow: ellipsis; }
+.pin-icon { font-size: 10px; margin-right: 4px; flex-shrink: 0; }
+.conv-menu-btn {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 0 2px;
+    font-size: 14px;
+    opacity: 0;
+    flex-shrink: 0;
+}
+.conv-item:hover .conv-menu-btn { opacity: 1; }
+.conv-menu {
+    position: absolute;
+    right: 0;
+    top: 100%;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 4px;
+    z-index: 50;
+    min-width: 160px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+}
+.conv-menu button {
+    display: block;
+    width: 100%;
+    text-align: left;
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    padding: 6px 10px;
+    font-size: 12px;
+    cursor: pointer;
+    border-radius: 4px;
+}
+.conv-menu button:hover { background: var(--bg-secondary); color: var(--text-primary); }
+.inline-rename-input {
+    background: var(--bg-primary);
+    border: 1px solid var(--accent-blue);
+    border-radius: 4px;
+    padding: 4px 8px;
+    color: var(--text-primary);
+    font-size: 13px;
+    width: 100%;
+    outline: none;
+}

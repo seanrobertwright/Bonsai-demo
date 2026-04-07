@@ -2,13 +2,17 @@
 
 import asyncio
 import json
+import shutil
+import uuid
+from pathlib import Path
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from fastapi.responses import HTMLResponse
+from fastapi import FastAPI, UploadFile, WebSocket, WebSocketDisconnect
+from fastapi import File as FastAPIFile
+from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 
 from chat.agent import AgentLoop
-from chat.config import CHAT_PORT, DB_PATH, STATIC_DIR, get_config, save_config_file
+from chat.config import CHAT_PORT, DB_PATH, SANDBOX_DIR, STATIC_DIR, get_config, save_config_file
 from chat.db import ChatDB
 from chat.tools import create_registry
 
@@ -91,6 +95,65 @@ async def save_configuration(data: dict):
 @app.get("/api/tools")
 async def list_tools():
     return agent.registry.list_tools()
+
+
+@app.post("/api/upload")
+async def upload_file(file: UploadFile = FastAPIFile(...)):
+    upload_dir = SANDBOX_DIR / "uploads"
+    upload_dir.mkdir(parents=True, exist_ok=True)
+
+    ext = Path(file.filename).suffix
+    file_id = str(uuid.uuid4())
+    dest = upload_dir / f"{file_id}{ext}"
+
+    with open(dest, "wb") as f:
+        shutil.copyfileobj(file.file, f)
+
+    # Read text content for code/text files
+    text_content = None
+    text_exts = {'.txt', '.py', '.js', '.ts', '.json', '.csv', '.md', '.html', '.css'}
+    if ext.lower() in text_exts:
+        try:
+            content = dest.read_text(encoding='utf-8')
+            if len(content) > 50_000:
+                content = content[:50_000] + "\n\n[File truncated to first 50KB]"
+            text_content = content
+        except Exception:
+            pass
+
+    return {
+        "id": file_id,
+        "filename": file.filename,
+        "path": str(dest),
+        "type": "image" if ext.lower() in {'.png', '.jpg', '.jpeg', '.gif', '.webp'} else "text",
+        "size": dest.stat().st_size,
+        "content": text_content,
+    }
+
+
+@app.get("/api/conversations/{conv_id}/export")
+async def export_conversation(conv_id: str, format: str = "markdown"):
+    conv = db.conn.execute("SELECT * FROM conversations WHERE id = ?", (conv_id,)).fetchone()
+    if not conv:
+        return JSONResponse({"error": "Not found"}, status_code=404)
+
+    messages = db.get_messages(conv_id)
+
+    if format == "json":
+        return JSONResponse({"title": conv["title"], "messages": messages})
+
+    # Markdown format
+    lines = [f"# {conv['title']}\n"]
+    for m in messages:
+        role = "**User:**" if m["role"] == "user" else "**Assistant:**"
+        lines.append(f"{role}\n\n{m['content']}\n")
+    return PlainTextResponse("\n---\n\n".join(lines), media_type="text/markdown")
+
+
+@app.post("/api/conversations/{conv_id}/pin")
+async def toggle_pin(conv_id: str):
+    pinned = db.toggle_pin(conv_id)
+    return {"pinned": pinned}
 
 
 # ── WebSocket Chat ──

@@ -38,6 +38,29 @@ function preprocessMarkdown(text) {
     return text;
 }
 
+function renderLatex(html) {
+    // Block math: $$...$$
+    html = html.replace(/\$\$([\s\S]+?)\$\$/g, (match, tex) => {
+        try {
+            return katex.renderToString(tex.trim(), { displayMode: true, throwOnError: false });
+        } catch (e) {
+            return `<code class="latex-error" title="LaTeX parse error">${escapeHtml(tex)}</code>`;
+        }
+    });
+
+    // Inline math: $...$ (no space after opening, no space before closing)
+    html = html.replace(/\$(\S(?:[^$]*?\S)?)\$/g, (match, tex) => {
+        if (match.includes('<code>') || match.includes('</code>')) return match;
+        try {
+            return katex.renderToString(tex.trim(), { displayMode: false, throwOnError: false });
+        } catch (e) {
+            return `<code class="latex-error" title="LaTeX parse error">${escapeHtml(tex)}</code>`;
+        }
+    });
+
+    return html;
+}
+
 function enhanceCodeBlocks(container) {
     const codeBlocks = container.querySelectorAll('pre code');
     for (const codeEl of codeBlocks) {
@@ -80,7 +103,7 @@ function appendMessage(role, content) {
 
     div.innerHTML = `
         <div class="avatar ${avatarClass}">${avatarContent}</div>
-        <div class="message-content">${role === 'user' ? escapeHtml(content) : marked.parse(preprocessMarkdown(content))}</div>
+        <div class="message-content">${role === 'user' ? escapeHtml(content) : renderLatex(marked.parse(preprocessMarkdown(content)))}</div>
     `;
 
     if (role === 'assistant') {
