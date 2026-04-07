@@ -137,6 +137,10 @@ function appendMessage(role, content) {
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 4v6h6"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
                 Regenerate
             </button>
+            <button class="message-action-btn" onclick="saveMemory(this.closest('.message-actions').previousElementSibling.querySelector('.message-content').textContent.substring(0, 100))" title="Save to Memory">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+                Remember
+            </button>
         `;
         messages.appendChild(actions);
     }

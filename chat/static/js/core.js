@@ -9,6 +9,7 @@ let currentAssistantText = '';
 async function init() {
     await loadTools();
     await loadConversations();
+    await loadModelSelector();
 }
 
 function connectWebSocket(convId) {

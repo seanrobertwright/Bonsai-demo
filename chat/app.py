@@ -12,7 +12,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 
 from chat.agent import AgentLoop
-from chat.config import CHAT_PORT, DB_PATH, SANDBOX_DIR, STATIC_DIR, get_config, save_config_file
+from chat.config import CHAT_PORT, DB_PATH, SANDBOX_DIR, STATIC_DIR, get_config, list_available_models, save_config_file
 from chat.db import ChatDB
 from chat.tools import create_registry
 
@@ -97,6 +97,11 @@ async def list_tools():
     return agent.registry.list_tools()
 
 
+@app.get("/api/models")
+async def get_models():
+    return list_available_models()
+
+
 @app.post("/api/upload")
 async def upload_file(file: UploadFile = FastAPIFile(...)):
     upload_dir = SANDBOX_DIR / "uploads"
@@ -154,6 +159,39 @@ async def export_conversation(conv_id: str, format: str = "markdown"):
 async def toggle_pin(conv_id: str):
     pinned = db.toggle_pin(conv_id)
     return {"pinned": pinned}
+
+
+@app.get("/api/memory")
+async def list_memories():
+    return db.list_memories()
+
+
+@app.post("/api/memory")
+async def add_memory(data: dict):
+    return db.add_memory(data["content"])
+
+
+@app.delete("/api/memory/{memory_id}")
+async def delete_memory(memory_id: str):
+    db.delete_memory(memory_id)
+    return {"ok": True}
+
+
+@app.delete("/api/memory")
+async def delete_all_memories():
+    db.delete_all_memories()
+    return {"ok": True}
+
+
+@app.get("/api/conversations/{conv_id}/system-prompt")
+async def get_system_prompt(conv_id: str):
+    return {"system_prompt": db.get_system_prompt(conv_id)}
+
+
+@app.post("/api/conversations/{conv_id}/system-prompt")
+async def set_system_prompt(conv_id: str, data: dict):
+    db.set_system_prompt(conv_id, data.get("system_prompt", ""))
+    return {"ok": True}
 
 
 # ── WebSocket Chat ──
@@ -283,12 +321,24 @@ async def websocket_chat(ws: WebSocket, conv_id: str):
             cancel_event = asyncio.Event()
             ws._cancel_event = cancel_event
 
+            # Build custom context from memories + conversation system prompt
+            memories = db.list_memories()
+            conv_system_prompt = db.get_system_prompt(conv_id)
+            custom_context = ""
+            if memories:
+                custom_context += "Things you know about the user:\n"
+                custom_context += "\n".join(f"- {m['content']}" for m in memories)
+                custom_context += "\n\n"
+            if conv_system_prompt:
+                custom_context += f"User instructions for this conversation:\n{conv_system_prompt}\n\n"
+
             result = await agent.run(
                 history,
                 on_token=on_token,
                 on_tool_start=on_tool_start,
                 on_tool_end=on_tool_end,
                 cancel_event=cancel_event,
+                custom_context=custom_context,
             )
 
             # Use result content

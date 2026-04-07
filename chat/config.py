@@ -59,6 +59,27 @@ def get_config() -> dict:
     }
 
 
+MODELS_DIR = Path(os.environ.get("BONSAI_MODELS_DIR", DEMO_DIR / "models" / "gguf"))
+
+
+def list_available_models() -> list[dict]:
+    """Scan models directory for available .gguf models."""
+    models = []
+    if MODELS_DIR.exists():
+        for model_dir in sorted(MODELS_DIR.iterdir()):
+            if model_dir.is_dir():
+                gguf_files = list(model_dir.glob("*.gguf"))
+                if gguf_files:
+                    models.append({
+                        "id": model_dir.name,
+                        "name": f"Bonsai {model_dir.name}",
+                        "path": str(gguf_files[0]),
+                    })
+    if not models:
+        models.append({"id": BONSAI_MODEL, "name": f"Bonsai {BONSAI_MODEL}", "path": ""})
+    return models
+
+
 def find_gguf_model() -> str | None:
     """Find the first .gguf file in the model directory."""
     model_dir = DEMO_DIR / "models" / "gguf" / get_config()["bonsai_model"]

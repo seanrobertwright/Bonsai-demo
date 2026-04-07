@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Bonsai Chat</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌳</text></svg>">
-    <link rel="stylesheet" href="/style.css?v=5">
+    <link rel="stylesheet" href="/style.css?v=7">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11/build/styles/github-dark.min.css">
     <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11/build/highlight.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
@@ -70,8 +70,18 @@
                             onkeydown="handleInputKeyDown(event)"></textarea>
                     </div>
                     <div class="input-footer">
-                        <span class="model-label" id="model-label">Bonsai 8B</span>
-                        <button id="send-btn" onclick="sendMessage()">Send</button>
+                        <span class="input-actions-left">
+                            <button class="icon-btn" onclick="toggleSystemPrompt()" title="System prompt">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+                            </button>
+                            <span class="model-label" id="model-label">Bonsai 8B</span>
+                        </span>
+                        <div class="input-actions-right">
+                            <button id="mic-btn" class="icon-btn" onclick="toggleVoice()" title="Voice input">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+                            </button>
+                            <button id="send-btn" onclick="sendMessage()">Send</button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -121,36 +131,76 @@
             </div>
         </div>
 
+        <!-- System prompt modal -->
+        <div id="system-prompt-modal" class="modal hidden">
+            <div class="modal-content">
+                <h2>System Prompt</h2>
+                <p style="font-size:12px;color:var(--text-muted);margin-bottom:12px">Custom instructions for this conversation</p>
+                <textarea id="system-prompt-input" rows="6" style="width:100%;background:var(--bg-primary);border:1px solid var(--border);border-radius:6px;padding:10px;color:var(--text-primary);font-size:13px;resize:vertical;outline:none" placeholder="e.g., Always respond in Python code..."></textarea>
+                <div class="modal-actions">
+                    <button onclick="saveSystemPrompt()">Save</button>
+                    <button onclick="toggleSystemPrompt()" class="secondary">Cancel</button>
+                </div>
+            </div>
+        </div>
+
         <!-- Settings modal -->
         <div id="settings-modal" class="modal hidden">
-            <div class="modal-content">
+            <div class="modal-content" style="width:480px">
                 <h2>Settings</h2>
-                <div class="setting">
-                    <label>SerpAPI Key (optional)</label>
-                    <input type="password" id="cfg-serpapi" placeholder="Leave blank for DuckDuckGo">
+                <div class="settings-tabs">
+                    <button class="tab-btn active" onclick="switchSettingsTab('general', this)">General</button>
+                    <button class="tab-btn" onclick="switchSettingsTab('memory', this)">Memory</button>
+                    <button class="tab-btn" onclick="switchSettingsTab('shortcuts', this)">Shortcuts</button>
                 </div>
-                <div class="setting">
-                    <label>OpenWeatherMap Key (optional)</label>
-                    <input type="password" id="cfg-openweather" placeholder="Leave blank for Open-Meteo">
+
+                <div id="tab-general" class="tab-content">
+                    <div class="setting">
+                        <label>SerpAPI Key (optional)</label>
+                        <input type="password" id="cfg-serpapi" placeholder="Leave blank for DuckDuckGo">
+                    </div>
+                    <div class="setting">
+                        <label>OpenWeatherMap Key (optional)</label>
+                        <input type="password" id="cfg-openweather" placeholder="Leave blank for Open-Meteo">
+                    </div>
+                    <div class="setting">
+                        <label>Sandbox Directory</label>
+                        <input type="text" id="cfg-sandbox">
+                    </div>
                 </div>
-                <div class="setting">
-                    <label>Sandbox Directory</label>
-                    <input type="text" id="cfg-sandbox">
+
+                <div id="tab-memory" class="tab-content" style="display:none">
+                    <div id="memory-list"></div>
+                    <button class="secondary" style="margin-top:8px;font-size:12px" onclick="clearAllMemories()">Clear All Memories</button>
                 </div>
+
+                <div id="tab-shortcuts" class="tab-content" style="display:none">
+                    <div class="shortcut-list">
+                        <div class="shortcut-row"><kbd>Ctrl+K</kbd><span>Search conversations</span></div>
+                        <div class="shortcut-row"><kbd>Ctrl+N</kbd><span>New chat</span></div>
+                        <div class="shortcut-row"><kbd>Ctrl+Shift+Bksp</kbd><span>Delete conversation</span></div>
+                        <div class="shortcut-row"><kbd>Escape</kbd><span>Close overlay</span></div>
+                        <div class="shortcut-row"><kbd>&uarr;</kbd><span>Edit last message (empty input)</span></div>
+                        <div class="shortcut-row"><kbd>?</kbd><span>Shortcuts help</span></div>
+                    </div>
+                </div>
+
                 <div class="modal-actions">
                     <button onclick="saveSettings()">Save</button>
-                    <button onclick="toggleSettings()" class="secondary">Cancel</button>
+                    <button onclick="toggleSettings()" class="secondary">Close</button>
                 </div>
             </div>
         </div>
     </div>
-    <script src="/js/messages.js?v=6"></script>
-    <script src="/js/conversations.js?v=6"></script>
-    <script src="/js/settings.js?v=6"></script>
-    <script src="/js/controls.js?v=6"></script>
-    <script src="/js/stats.js?v=6"></script>
-    <script src="/js/uploads.js?v=6"></script>
-    <script src="/js/shortcuts.js?v=6"></script>
-    <script src="/js/core.js?v=6"></script>
+    <script src="/js/messages.js?v=7"></script>
+    <script src="/js/conversations.js?v=7"></script>
+    <script src="/js/settings.js?v=7"></script>
+    <script src="/js/controls.js?v=7"></script>
+    <script src="/js/stats.js?v=7"></script>
+    <script src="/js/uploads.js?v=7"></script>
+    <script src="/js/memory.js?v=7"></script>
+    <script src="/js/voice.js?v=7"></script>
+    <script src="/js/shortcuts.js?v=7"></script>
+    <script src="/js/core.js?v=7"></script>
 </body>
 </html>

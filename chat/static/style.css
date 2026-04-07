@@ -816,3 +816,80 @@ body {
     width: 100%;
     outline: none;
 }
+
+/* ── Settings tabs ── */
+.settings-tabs {
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 16px;
+}
+.tab-btn {
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--text-muted);
+    padding: 8px 16px;
+    font-size: 13px;
+    cursor: pointer;
+}
+.tab-btn:hover { color: var(--text-secondary); }
+.tab-btn.active { color: var(--accent-blue); border-bottom-color: var(--accent-blue); }
+
+/* Memory items */
+.memory-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+}
+.memory-delete {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 16px;
+    padding: 0 4px;
+}
+.memory-delete:hover { color: #f85149; }
+
+/* ── Model selector ── */
+.model-selector {
+    background: var(--bg-primary);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text-muted);
+    font-size: 12px;
+    padding: 2px 6px;
+    outline: none;
+    cursor: pointer;
+}
+.model-selector:hover { border-color: var(--text-muted); }
+
+/* ── Icon buttons ── */
+.icon-btn {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 4px;
+}
+.icon-btn:hover { color: var(--text-secondary); }
+
+#mic-btn.listening {
+    color: #da3633;
+    animation: pulse 1.5s infinite;
+}
+.input-actions-left {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.input-actions-right {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}

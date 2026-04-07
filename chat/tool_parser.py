@@ -27,11 +27,9 @@ def _extract_json_calls(text: str, available_tools: list[str]) -> list[dict]:
     # Find JSON in ```json blocks
     json_blocks = re.findall(r'```(?:json)?\s*\n?(.*?)\n?```', text, re.DOTALL)
 
-    # Also try to find bare JSON objects
-    bare_json = re.findall(r'\{[^{}]*"name"\s*:\s*"[^"]+"\s*,\s*"arguments"\s*:\s*\{[^}]*\}[^}]*\}', text)
+    # Also try to find bare JSON objects using bracket-counting
+    bare_json = _find_bare_json_objects(text) if not json_blocks else []
 
-    # Deduplicate: if we found json blocks, don't also search for bare JSON
-    # (bare regex often re-matches content inside the blocks)
     candidates = json_blocks if json_blocks else bare_json
 
     for candidate in candidates:
@@ -47,6 +45,48 @@ def _extract_json_calls(text: str, available_tools: list[str]) -> list[dict]:
             continue
 
     return calls
+
+
+def _find_bare_json_objects(text: str) -> list[str]:
+    """Extract JSON objects from text using bracket-counting (handles nested braces in strings)."""
+    results = []
+    i = 0
+    while i < len(text):
+        if text[i] == '{':
+            # Try to extract a balanced JSON object
+            depth = 0
+            in_string = False
+            escape_next = False
+            start = i
+            for j in range(i, len(text)):
+                ch = text[j]
+                if escape_next:
+                    escape_next = False
+                    continue
+                if ch == '\\' and in_string:
+                    escape_next = True
+                    continue
+                if ch == '"' and not escape_next:
+                    in_string = not in_string
+                    continue
+                if in_string:
+                    continue
+                if ch == '{':
+                    depth += 1
+                elif ch == '}':
+                    depth -= 1
+                    if depth == 0:
+                        candidate = text[start:j + 1]
+                        # Quick check: does it look like a tool call?
+                        if '"name"' in candidate and '"arguments"' in candidate:
+                            results.append(candidate)
+                        i = j + 1
+                        break
+            else:
+                i += 1
+        else:
+            i += 1
+    return results
 
 
 def _extract_intent_calls(text: str, available_tools: list[str]) -> list[dict]:

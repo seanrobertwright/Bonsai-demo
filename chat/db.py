@@ -40,6 +40,17 @@ class ChatDB:
             self.conn.execute("ALTER TABLE conversations ADD COLUMN pinned INTEGER DEFAULT 0")
         except sqlite3.OperationalError:
             pass
+        try:
+            self.conn.execute("ALTER TABLE conversations ADD COLUMN system_prompt TEXT DEFAULT ''")
+        except sqlite3.OperationalError:
+            pass
+        self.conn.executescript("""
+            CREATE TABLE IF NOT EXISTS memories (
+                id TEXT PRIMARY KEY,
+                content TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            );
+        """)
         self.conn.commit()
 
     def create_conversation(self, title: str) -> dict:
@@ -159,6 +170,39 @@ class ChatDB:
                 (conversation_id, row["created_at"]),
             )
             self.conn.commit()
+
+    def add_memory(self, content: str) -> dict:
+        mid = str(uuid.uuid4())
+        now = datetime.now(timezone.utc).isoformat()
+        self.conn.execute("INSERT INTO memories (id, content, created_at) VALUES (?, ?, ?)", (mid, content, now))
+        # Auto-prune to 20
+        self.conn.execute("""
+            DELETE FROM memories WHERE id NOT IN (
+                SELECT id FROM memories ORDER BY created_at DESC LIMIT 20
+            )
+        """)
+        self.conn.commit()
+        return {"id": mid, "content": content, "created_at": now}
+
+    def list_memories(self) -> list[dict]:
+        rows = self.conn.execute("SELECT * FROM memories ORDER BY created_at DESC").fetchall()
+        return [dict(r) for r in rows]
+
+    def delete_memory(self, memory_id: str) -> None:
+        self.conn.execute("DELETE FROM memories WHERE id = ?", (memory_id,))
+        self.conn.commit()
+
+    def delete_all_memories(self) -> None:
+        self.conn.execute("DELETE FROM memories")
+        self.conn.commit()
+
+    def get_system_prompt(self, conversation_id: str) -> str:
+        row = self.conn.execute("SELECT system_prompt FROM conversations WHERE id = ?", (conversation_id,)).fetchone()
+        return row["system_prompt"] if row and row["system_prompt"] else ""
+
+    def set_system_prompt(self, conversation_id: str, prompt: str) -> None:
+        self.conn.execute("UPDATE conversations SET system_prompt = ? WHERE id = ?", (prompt, conversation_id))
+        self.conn.commit()
 
     def close(self):
         self.conn.close()
