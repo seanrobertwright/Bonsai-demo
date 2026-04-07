@@ -97,6 +97,13 @@ async def websocket_chat(ws: WebSocket, conv_id: str):
         while True:
             data = await ws.receive_text()
             msg = json.loads(data)
+
+            # Handle stop signal
+            if msg.get("type") == "stop":
+                if hasattr(ws, '_cancel_event'):
+                    ws._cancel_event.set()
+                continue
+
             user_content = msg.get("content", "")
 
             if not user_content.strip():
@@ -133,11 +140,16 @@ async def websocket_chat(ws: WebSocket, conv_id: str):
             async def on_tool_end(name: str, result: dict):
                 await ws.send_text(json.dumps({"type": "tool_end", "name": name, "result": result}))
 
+            # Create cancellation event for this request
+            cancel_event = asyncio.Event()
+            ws._cancel_event = cancel_event
+
             result = await agent.run(
                 history,
                 on_token=on_token,
                 on_tool_start=on_tool_start,
                 on_tool_end=on_tool_end,
+                cancel_event=cancel_event,
             )
 
             # Use result content

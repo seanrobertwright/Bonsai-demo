@@ -183,16 +183,77 @@ body {
 .message.assistant .message-content { background: transparent; }
 
 .message-content pre {
-    background: var(--bg-secondary);
+    background: #1a1b26;
     border: 1px solid var(--border);
-    border-radius: 6px;
-    padding: 12px;
+    border-radius: 8px;
+    padding: 16px;
     overflow-x: auto;
     margin: 8px 0;
+    position: relative;
+}
+.message-content pre.has-line-numbers {
+    padding-left: 0;
+    display: flex;
+}
+.message-content pre .line-numbers {
+    display: flex;
+    flex-direction: column;
+    text-align: right;
+    padding: 0 12px 0 16px;
+    color: #4a5568;
+    user-select: none;
+    border-right: 1px solid var(--border);
+    margin-right: 16px;
+    font-family: 'Consolas', 'Monaco', monospace;
+    font-size: 13px;
+    line-height: 1.6;
+    flex-shrink: 0;
+    min-width: 40px;
+}
+.message-content pre code {
+    flex: 1;
+    overflow-x: auto;
+    padding: 0;
+    background: transparent;
 }
 .message-content code {
     font-family: 'Consolas', 'Monaco', monospace;
     font-size: 13px;
+    line-height: 1.6;
+}
+/* Inline code (not inside pre) */
+.message-content :not(pre) > code {
+    background: var(--bg-tertiary);
+    border-radius: 4px;
+    padding: 2px 6px;
+}
+/* Override highlight.js background */
+.message-content pre code.hljs {
+    background: transparent;
+    padding: 0;
+}
+.message-content pre .copy-btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.1);
+    color: #8b949e;
+    padding: 4px 6px;
+    border-radius: 4px;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.15s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.message-content pre:hover .copy-btn {
+    opacity: 1;
+}
+.message-content pre .copy-btn:hover {
+    background: rgba(255,255,255,0.12);
+    color: var(--text-primary);
 }
 .message-content p { margin-bottom: 8px; }
 .message-content p:last-child { margin-bottom: 0; }
@@ -400,3 +461,12 @@ body {
 }
 .modal-actions button:first-child { background: var(--accent-green); color: white; }
 .modal-actions button.secondary { background: var(--border); color: var(--text-primary); }
+
+/* Stop button (replaces Send during streaming) */
+#send-btn.stop-btn {
+    background: #da3633;
+    padding: 5px 10px;
+}
+#send-btn.stop-btn:hover {
+    background: #f85149;
+}

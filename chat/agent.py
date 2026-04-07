@@ -57,6 +57,8 @@ class AgentLoop:
         on_token=None,
         on_tool_start=None,
         on_tool_end=None,
+        cancel_event=None,
+        custom_context="",
     ) -> dict:
         """Run the agent loop. Returns {content, tool_calls}.
 
@@ -66,6 +68,8 @@ class AgentLoop:
           on_tool_end(name: str, result: dict) — called when tool execution ends
         """
         system_prompt = self._build_system_prompt()
+        if custom_context:
+            system_prompt = custom_context + "\n\n" + system_prompt
         all_tool_calls = []
 
         # Build messages with system prompt
@@ -75,7 +79,17 @@ class AgentLoop:
             # Collect full response first (don't stream yet — need to check for tool calls)
             full_response = ""
             async for token in self._stream_completion(full_messages):
+                if cancel_event and cancel_event.is_set():
+                    break
                 full_response += token
+
+            if cancel_event and cancel_event.is_set():
+                # Stream what we have so far and return
+                if on_token and full_response:
+                    display_text = self._strip_tool_json(full_response)
+                    for char in display_text:
+                        await on_token(char)
+                return {"content": full_response, "tool_calls": all_tool_calls}
 
             # Parse for tool calls
             tool_calls = parse_tool_calls(full_response, self.registry.list_names())
@@ -113,12 +127,36 @@ class AgentLoop:
 
     @staticmethod
     def _strip_tool_json(text: str) -> str:
-        """Remove JSON tool call blocks from text meant for display."""
+        """Remove JSON tool call blocks from text, converting code calls to markdown."""
         import re
-        # Remove ```json ... ``` blocks containing tool calls
-        text = re.sub(r'```(?:json)?\s*\n?\{[^}]*"name"\s*:.*?\}.*?```', '', text, flags=re.DOTALL)
-        # Remove bare JSON tool calls
-        text = re.sub(r'\{[^{}]*"name"\s*:\s*"[^"]+"\s*,\s*"arguments"\s*:\s*\{[^}]*\}[^}]*\}', '', text)
+
+        def _replace_tool_json(json_str: str) -> str:
+            """Convert a tool call JSON string to markdown (code block for python_exec, empty otherwise)."""
+            try:
+                parsed = json.loads(json_str)
+                if isinstance(parsed, dict) and "name" in parsed:
+                    if parsed["name"] == "python_exec" and "code" in parsed.get("arguments", {}):
+                        code = parsed["arguments"]["code"]
+                        return f"\n```python\n{code}\n```\n"
+                    return ""
+            except (json.JSONDecodeError, TypeError):
+                pass
+            return json_str
+
+        # Handle ```json ... ``` blocks containing tool calls
+        def replace_fenced(m):
+            content = m.group(1).strip()
+            if '"name"' in content and '"arguments"' in content:
+                return _replace_tool_json(content)
+            return m.group(0)
+        text = re.sub(r'```(?:json)?\s*\n?(.*?)\n?```', replace_fenced, text, flags=re.DOTALL)
+
+        # Handle bare JSON tool calls using bracket-counting
+        from chat.tool_parser import _find_bare_json_objects
+        for obj_str in _find_bare_json_objects(text):
+            replacement = _replace_tool_json(obj_str)
+            text = text.replace(obj_str, replacement, 1)
+
         return text.strip()
 
     async def _stream_completion(self, messages: list[dict]) -> AsyncGenerator[str, None]:

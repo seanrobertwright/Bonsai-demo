@@ -61,7 +61,11 @@ function handleWSMessage(data) {
             }
             currentAssistantEl = null;
             currentAssistantText = '';
-            document.getElementById('send-btn').disabled = false;
+            const doneBtn = document.getElementById('send-btn');
+            doneBtn.textContent = 'Send';
+            doneBtn.classList.remove('stop-btn');
+            doneBtn.onclick = sendMessage;
+            doneBtn.disabled = false;
             document.getElementById('message-input').disabled = false;
             break;
 
@@ -92,7 +96,11 @@ async function sendMessage() {
 
 function sendMessageText(text) {
     appendMessage('user', text);
-    document.getElementById('send-btn').disabled = true;
+    const btn = document.getElementById('send-btn');
+    btn.disabled = false;  // Keep enabled as Stop
+    btn.textContent = 'Stop';
+    btn.classList.add('stop-btn');
+    btn.onclick = stopGeneration;
     document.getElementById('message-input').disabled = true;
     ws.send(JSON.stringify({ content: text }));
     scrollToBottom();
