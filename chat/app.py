@@ -326,9 +326,15 @@ async def websocket_chat(ws: WebSocket, conv_id: str):
             conv_system_prompt = db.get_system_prompt(conv_id)
             custom_context = ""
             if memories:
+                # Show oldest-first so the most recent fact appears last —
+                # the tie-breaker instruction below then just means "trust the last one."
+                memories_oldest_first = list(reversed(memories))
                 custom_context += "Things you know about the user:\n"
-                custom_context += "\n".join(f"- {m['content']}" for m in memories)
-                custom_context += "\n\n"
+                custom_context += "\n".join(f"- {m['content']}" for m in memories_oldest_first)
+                custom_context += (
+                    "\n\n(If two of the facts above contradict each other, "
+                    "trust the most recent one — listed last.)\n\n"
+                )
             if conv_system_prompt:
                 custom_context += f"User instructions for this conversation:\n{conv_system_prompt}\n\n"
 
