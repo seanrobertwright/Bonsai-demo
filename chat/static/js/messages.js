@@ -61,6 +61,13 @@ function renderLatex(html) {
     return html;
 }
 
+/** Toggle full-width code layout for assistant rows that contain fenced code blocks. */
+function syncAssistantCodeLayout(messageEl) {
+    if (!messageEl || !messageEl.classList.contains('assistant')) return;
+    const hasPre = messageEl.querySelector('.message-content pre');
+    messageEl.classList.toggle('has-code', !!hasPre);
+}
+
 function enhanceCodeBlocks(container) {
     const codeBlocks = container.querySelectorAll('pre code');
     for (const codeEl of codeBlocks) {
@@ -108,6 +115,7 @@ function appendMessage(role, content) {
 
     if (role === 'assistant') {
         enhanceCodeBlocks(div);
+        syncAssistantCodeLayout(div);
     }
 
     // Add edit button for user messages

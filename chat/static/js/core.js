@@ -9,6 +9,7 @@ let currentAssistantText = '';
 async function init() {
     await loadTools();
     await loadConversations();
+    await loadSidebarMemories();
     await loadModelSelector();
 }
 
@@ -45,6 +46,7 @@ function handleWSMessage(data) {
             const contentEl = currentAssistantEl.querySelector('.message-content');
             contentEl.innerHTML = renderLatex(marked.parse(preprocessMarkdown(currentAssistantText)));
             enhanceCodeBlocks(contentEl);
+            syncAssistantCodeLayout(currentAssistantEl);
             scrollToBottom();
             break;
 
@@ -56,8 +58,12 @@ function handleWSMessage(data) {
         case 'tool_end':
             updateToolPill(data.name, 'completed');
             updateToolLog(data.name, data.result);
-            if (data.name === 'remember' && typeof window.showMemoryToast === 'function') {
-                window.showMemoryToast(data.result);
+            if (data.name === 'remember') {
+                if (typeof window.showMemoryToast === 'function') {
+                    window.showMemoryToast(data.result);
+                } else if (typeof loadSidebarMemories === 'function') {
+                    void loadSidebarMemories();
+                }
             }
             break;
 
@@ -70,6 +76,7 @@ function handleWSMessage(data) {
                 const finalEl = currentAssistantEl.querySelector('.message-content');
                 finalEl.innerHTML = renderLatex(marked.parse(preprocessMarkdown(currentAssistantText)));
                 enhanceCodeBlocks(finalEl);
+                syncAssistantCodeLayout(currentAssistantEl);
             }
             if (currentAssistantEl) {
                 renderStats(currentAssistantEl);

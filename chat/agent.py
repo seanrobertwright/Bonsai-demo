@@ -5,7 +5,7 @@ from typing import AsyncGenerator
 
 import httpx
 
-from chat.config import MAX_TOOL_ROUNDS, LLAMA_BASE_URL
+from chat.config import MAX_TOOL_ROUNDS, LLAMA_BASE_URL, get_config
 from chat.tool_parser import parse_tool_calls
 from chat.tools import ToolRegistry
 
@@ -43,9 +43,17 @@ class AgentLoop:
             "- Meta questions about yourself ('who are you?', 'what can you do?')\n\n"
             "When in doubt, DO NOT use a tool. Just answer from your knowledge.\n\n"
 
-            "## WHEN TO USE TOOLS (the exception)\n"
-            "Only call a tool when you genuinely cannot answer without real-world data the model "
-            "doesn't have. Available tools:\n\n"
+            "## CRITICAL EXCEPTION — **remember** (personal facts)\n"
+            "If the user states a NEW durable fact about themselves or their close relationships "
+            "(name, spouse/partner/marriage, children, pets, city, job, allergies, diet, identity) "
+            "that is NOT already listed under 'Facts you already know about the user' in your "
+            "context, you MUST call **remember** first — output ONLY the JSON tool call with no "
+            "other text in that turn, then reply after the tool result. This overrides the "
+            "'respond directly' rule above. Do not skip remember just to sound conversational.\n\n"
+
+            "## WHEN TO USE OTHER TOOLS\n"
+            "For non-remember tools, only call when you genuinely cannot answer without real-world "
+            "data the model doesn't have. Available tools:\n\n"
             + "\n".join(tool_docs)
             + "\n\n"
 
@@ -65,16 +73,17 @@ class AgentLoop:
             "- **file_io**: ONLY when the user explicitly asks to read, write, or list files.\n"
             "- **python_exec**: ONLY when the user explicitly asks you to run or execute code.\n"
             "- **remember**: When the user shares a stable trait or fact about themselves "
-            "that would still be true next month, call remember to save it BEFORE you reply. "
-            "Saveable categories: location, job, family, pets, hobbies, long-running projects, "
-            "dietary or lifestyle choices (vegan, vegetarian, gluten-free, etc.), allergies, "
-            "identity facts ('I'm a parent', 'my name is X'), and explicit preferences for how "
-            "you should behave. Pattern examples: 'I live in X', 'I'm a Y', 'I'm vegan', "
-            "'I'm allergic to X', 'my dog is W', 'I work as X', 'call me Y', 'my name is Z', "
-            "'I prefer X over Y'. NEVER save trivia, transient states ('I'm tired', 'I'm at "
-            "the store'), passing remarks, or facts about topics the user asked about. Save "
-            "at most one fact per turn. If the fact is already listed in 'Facts you already "
-            "know about the user', do not save it again.\n\n"
+            "(or their immediate family / partner) that would still be true next month, call "
+            "remember to save it BEFORE any conversational reply. Includes: location, job, "
+            "family and relationships (spouse, marriage, 'I'm married to X', partner, kids), "
+            "pets, hobbies, long-running projects, dietary or lifestyle choices (vegan, etc.), "
+            "allergies, identity ('my name is X', 'call me Y'). Pattern examples: 'I live in X', "
+            "'I'm married to Kate', 'my husband's name is …', 'I'm vegan', 'I'm allergic to X', "
+            "'I have a dog named Theo', 'my dog is W', 'I have a cat named Bear', 'I work as X', "
+            "'my name is Z'. NEVER save trivia, transient states "
+            "('I'm tired'), passing remarks, or facts about topics the user only asked about. "
+            "Save at most one new fact per user message. If the fact is already listed in "
+            "'Facts you already know about the user', do not call remember again.\n\n"
 
             "## Tool call format\n"
             "To call a tool, output ONLY a JSON object with 'name' and 'arguments' fields and "
@@ -101,6 +110,10 @@ class AgentLoop:
             'You: {"name": "web_search", "arguments": {"query": "Super Bowl winner last week"}}\n\n'
             "User: I just moved to Seattle last month.\n"
             'You: {"name": "remember", "arguments": {"content": "User lives in Seattle"}}\n\n'
+            "User: I am married to Kate.\n"
+            'You: {"name": "remember", "arguments": {"content": "User is married to Kate"}}\n\n'
+            "User: I have a dog named Theo.\n"
+            'You: {"name": "remember", "arguments": {"content": "User has a dog named Theo"}}\n\n'
             "User: run this python: print(2**10)\n"
             'You: {"name": "python_exec", "arguments": {"code": "print(2**10)"}}'
         )
@@ -219,6 +232,7 @@ class AgentLoop:
 
     async def _stream_completion(self, messages: list[dict]) -> AsyncGenerator[str, None]:
         """Stream tokens from llama-server's /v1/chat/completions endpoint."""
+        cfg = get_config()
         async with httpx.AsyncClient(timeout=120) as client:
             async with client.stream(
                 "POST",
@@ -226,9 +240,9 @@ class AgentLoop:
                 json={
                     "messages": messages,
                     "stream": True,
-                    "temperature": 0.5,
-                    "top_p": 0.85,
-                    "top_k": 20,
+                    "temperature": cfg["temperature"],
+                    "top_p": cfg["top_p"],
+                    "top_k": cfg["top_k"],
                 },
             ) as resp:
                 async for line in resp.aiter_lines():

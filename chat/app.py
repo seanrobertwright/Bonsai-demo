@@ -12,8 +12,8 @@ from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 
 from chat.agent import AgentLoop
-from chat.config import CHAT_PORT, DB_PATH, SANDBOX_DIR, STATIC_DIR, get_config, list_available_models, save_config_file
-from chat.db import ChatDB
+from chat.config import CHAT_PORT, DB_PATH, SANDBOX_DIR, STATIC_DIR, get_config, list_available_models, merge_config_updates
+from chat.db import ChatDB, normalize_conversation_title
 from chat.tools import create_registry
 
 app = FastAPI(title="Bonsai Chat")
@@ -21,6 +21,68 @@ app = FastAPI(title="Bonsai Chat")
 # Globals initialized on startup
 db: ChatDB | None = None
 agent: AgentLoop | None = None
+
+
+def _remember_nudge_for_latest_user_message(user_content: str) -> str:
+    """Extra system context when the user message likely states a durable personal fact.
+
+    The model often replies conversationally without emitting `remember` JSON; this nudge
+    reinforces policy for relationship/identity phrases that must be persisted.
+    """
+    u = user_content.strip().lower()
+    if len(u) < 4:
+        return ""
+    needles = (
+        "married",
+        "my wife",
+        "my husband",
+        "my partner",
+        "my spouse",
+        "fiancé",
+        "fiance",
+        "my name is",
+        "call me ",
+        "i live in",
+        "i live at",
+        "i'm from",
+        "i work at",
+        "i work as",
+        "my son",
+        "my daughter",
+        "my child",
+        # Pets — "I have a dog named …" does NOT contain "my dog"; match ownership phrasing
+        "have a dog",
+        "have a cat",
+        "have two dogs",
+        "have two cats",
+        "got a dog",
+        "got a cat",
+        "adopted a dog",
+        "adopted a cat",
+        "own a dog",
+        "own a cat",
+        "my dog",
+        "my cat",
+        "my puppy",
+        "my kitten",
+        "my pet",
+        "our dog",
+        "our cat",
+        "allergic to",
+        "i'm vegan",
+        "i am vegan",
+        "vegetarian",
+        "prefer to be called",
+    )
+    if not any(n in u for n in needles):
+        return ""
+    return (
+        "\n[SYSTEM — MEMORY POLICY: The user's latest message likely states a durable personal "
+        "fact. If it is NOT already covered in the facts listed above, respond with ONLY a "
+        "remember tool JSON (no other characters), then continue after the tool result. "
+        "Save relationships, address, and pets (e.g. \"User has a dog named …\", "
+        "\"User is married to …\").]\n"
+    )
 
 
 @app.on_event("startup")
@@ -64,14 +126,21 @@ async def get_messages(conv_id: str):
 
 @app.delete("/api/conversations/{conv_id}")
 async def delete_conversation(conv_id: str):
-    db.delete_conversation(conv_id)
+    if not db.delete_conversation(conv_id):
+        return JSONResponse({"error": "Not found"}, status_code=404)
     return {"ok": True}
 
 
 @app.patch("/api/conversations/{conv_id}")
 async def update_conversation(conv_id: str, data: dict):
-    if "title" in data:
-        db.update_title(conv_id, data["title"])
+    if "title" not in data:
+        return JSONResponse({"error": "title is required"}, status_code=422)
+    try:
+        title = normalize_conversation_title(data["title"])
+    except ValueError as e:
+        return JSONResponse({"error": str(e)}, status_code=422)
+    if db.update_title(conv_id, title) == 0:
+        return JSONResponse({"error": "Not found"}, status_code=404)
     return {"ok": True}
 
 
@@ -88,7 +157,7 @@ async def get_configuration():
 
 @app.post("/api/config")
 async def save_configuration(data: dict):
-    save_config_file(data)
+    merge_config_updates(data)
     return {"ok": True}
 
 
@@ -341,6 +410,8 @@ async def websocket_chat(ws: WebSocket, conv_id: str):
                 )
             if conv_system_prompt:
                 custom_context += f"User instructions for this conversation:\n{conv_system_prompt}\n\n"
+
+            custom_context += _remember_nudge_for_latest_user_message(user_content)
 
             result = await agent.run(
                 history,

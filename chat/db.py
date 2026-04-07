@@ -1,9 +1,25 @@
 """SQLite storage for conversations and messages."""
 
 import json
+import re
 import sqlite3
 import uuid
 from datetime import datetime, timezone
+
+MAX_CONVERSATION_TITLE_LEN = 200
+
+
+def normalize_conversation_title(title: str) -> str:
+    """Trim, collapse whitespace, enforce max length. Raises ValueError if empty after trim."""
+    if not isinstance(title, str):
+        raise ValueError("Title must be a string")
+    t = " ".join(title.strip().split())
+    if not t:
+        raise ValueError("Title cannot be empty")
+    t = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f]", "", t)
+    if len(t) > MAX_CONVERSATION_TITLE_LEN:
+        t = t[:MAX_CONVERSATION_TITLE_LEN]
+    return t
 
 
 class ChatDB:
@@ -82,18 +98,33 @@ class ChatDB:
         self.conn.commit()
         return bool(new_val)
 
-    def update_title(self, conversation_id: str, title: str) -> None:
+    def update_title(self, conversation_id: str, title: str) -> int:
         now = datetime.now(timezone.utc).isoformat()
-        self.conn.execute(
+        cur = self.conn.execute(
             "UPDATE conversations SET title = ?, updated_at = ? WHERE id = ?",
             (title, now, conversation_id),
         )
         self.conn.commit()
+        return cur.rowcount
 
-    def delete_conversation(self, conversation_id: str) -> None:
+    def conversation_exists(self, conversation_id: str) -> bool:
+        row = self.conn.execute(
+            "SELECT 1 FROM conversations WHERE id = ? LIMIT 1",
+            (conversation_id,),
+        ).fetchone()
+        return row is not None
+
+    def delete_conversation(self, conversation_id: str) -> bool:
+        row = self.conn.execute(
+            "SELECT 1 FROM conversations WHERE id = ? LIMIT 1",
+            (conversation_id,),
+        ).fetchone()
+        if not row:
+            return False
         self.conn.execute("DELETE FROM messages WHERE conversation_id = ?", (conversation_id,))
         self.conn.execute("DELETE FROM conversations WHERE id = ?", (conversation_id,))
         self.conn.commit()
+        return True
 
     def add_message(self, conversation_id: str, role: str, content: str, tool_calls: list | None = None) -> dict:
         mid = str(uuid.uuid4())

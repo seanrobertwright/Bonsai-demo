@@ -31,6 +31,40 @@ URL_FETCH_MAX_CHARS = 2000
 SERPAPI_KEY = os.environ.get("SERPAPI_KEY", "")
 OPENWEATHER_KEY = os.environ.get("OPENWEATHER_KEY", "")
 
+# Generation defaults (llama.cpp / OpenAI-compatible chat completions)
+DEFAULT_TEMPERATURE = 0.5
+DEFAULT_TOP_P = 0.85
+DEFAULT_TOP_K = 20
+
+
+def _clamp_temperature(value) -> float:
+    try:
+        t = float(value)
+    except (TypeError, ValueError):
+        return DEFAULT_TEMPERATURE
+    return max(0.0, min(2.0, t))
+
+
+def _clamp_top_p(value) -> float:
+    try:
+        p = float(value)
+    except (TypeError, ValueError):
+        return DEFAULT_TOP_P
+    return max(0.0, min(1.0, p))
+
+
+def _clamp_top_k(value) -> int:
+    try:
+        k = int(value)
+    except (TypeError, ValueError):
+        return DEFAULT_TOP_K
+    return max(1, min(100000, k))
+
+
+def _looks_masked_api_key_display(value: str) -> bool:
+    """True when GET /api/config masked a stored key for display (e.g. abcd****)."""
+    return isinstance(value, str) and value.endswith("****") and len(value) >= 8
+
 
 def load_config_file() -> dict:
     """Load overrides from config.json if it exists."""
@@ -46,6 +80,33 @@ def save_config_file(data: dict) -> None:
         json.dump(data, f, indent=2)
 
 
+def merge_config_updates(updates: dict) -> None:
+    """Merge partial UI updates into config.json without dropping other keys.
+
+    API keys: if the client still shows the masked placeholder from GET /api/config,
+    do not overwrite the stored secret.
+    """
+    base = load_config_file()
+    if "serpapi_key" in updates:
+        v = updates["serpapi_key"]
+        if isinstance(v, str) and not _looks_masked_api_key_display(v):
+            base["serpapi_key"] = v
+    if "openweather_key" in updates:
+        v = updates["openweather_key"]
+        if isinstance(v, str) and not _looks_masked_api_key_display(v):
+            base["openweather_key"] = v
+    if "sandbox_dir" in updates and updates["sandbox_dir"] is not None:
+        base["sandbox_dir"] = str(updates["sandbox_dir"])
+    if "temperature" in updates:
+        base["temperature"] = _clamp_temperature(updates.get("temperature"))
+    if "top_p" in updates:
+        base["top_p"] = _clamp_top_p(updates.get("top_p"))
+    if "top_k" in updates:
+        base["top_k"] = _clamp_top_k(updates.get("top_k"))
+    with open(CONFIG_FILE, "w") as f:
+        json.dump(base, f, indent=2)
+
+
 def get_config() -> dict:
     """Return merged config: env vars as defaults, config.json overrides."""
     file_cfg = load_config_file()
@@ -56,6 +117,9 @@ def get_config() -> dict:
         "serpapi_key": file_cfg.get("serpapi_key", SERPAPI_KEY),
         "openweather_key": file_cfg.get("openweather_key", OPENWEATHER_KEY),
         "bonsai_model": file_cfg.get("bonsai_model", BONSAI_MODEL),
+        "temperature": _clamp_temperature(file_cfg.get("temperature", DEFAULT_TEMPERATURE)),
+        "top_p": _clamp_top_p(file_cfg.get("top_p", DEFAULT_TOP_P)),
+        "top_k": _clamp_top_k(file_cfg.get("top_k", DEFAULT_TOP_K)),
     }
 
 

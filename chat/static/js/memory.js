@@ -33,47 +33,79 @@ async function saveMemory(prefill) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ content }),
     });
+    if (typeof loadSidebarMemories === 'function') await loadSidebarMemories();
 }
 
 // ── Autonomous memory: save toast + undo ──
 
+function dismissMemoryToast(toast, ms) {
+    const delay = ms != null ? ms : 5000;
+    setTimeout(() => {
+        toast.classList.remove('visible');
+        setTimeout(() => toast.remove(), 300);
+    }, delay);
+}
+
+/** Simple banner (no undo) — duplicate, error, or short notices */
+function showMemoryBanner(message, opts) {
+    const toast = document.createElement('div');
+    toast.className = 'memory-toast';
+    toast.setAttribute('role', 'status');
+    toast.innerHTML = `<span class="memory-toast-content"></span>`;
+    toast.querySelector('.memory-toast-content').textContent = message;
+    document.body.appendChild(toast);
+    requestAnimationFrame(() => toast.classList.add('visible'));
+    dismissMemoryToast(toast, opts && opts.durationMs);
+}
+
 function showMemoryToast(result) {
-    // result shape: { status: 'saved'|'duplicate', id, content }
-    // Note: 'updated' status was removed when prefix dedup was dropped — v1
-    // only has 'saved' and 'duplicate'.
-    if (!result || result.status === 'duplicate') return;
-    if (result.error) return;
+    // Keep sidebar in sync whenever the remember tool returns (saved, duplicate, or error).
+    if (typeof loadSidebarMemories === 'function') {
+        void loadSidebarMemories();
+    }
+
+    if (!result || typeof result !== 'object') {
+        return;
+    }
+    if (result.error) {
+        showMemoryBanner('Memory: ' + String(result.error), { durationMs: 6000 });
+        return;
+    }
+    if (result.status === 'duplicate') {
+        showMemoryBanner('Already saved — that fact is already in your memories.', {
+            durationMs: 4000,
+        });
+        return;
+    }
 
     const toast = document.createElement('div');
     toast.className = 'memory-toast';
+    toast.setAttribute('role', 'status');
     toast.innerHTML = `
-        <span>💾 Remembered: </span>
+        <span>Remembered: </span>
         <span class="memory-toast-content"></span>
         <span class="memory-toast-undo">Undo</span>
     `;
-    // textContent, not innerHTML, for user content — prevents XSS if the
-    // model emits HTML in the memory content.
-    toast.querySelector('.memory-toast-content').textContent = `"${result.content}"`;
+    const content = result.content != null ? String(result.content) : '';
+    toast.querySelector('.memory-toast-content').textContent = content ? `"${content}"` : 'Saved.';
 
     const undoEl = toast.querySelector('.memory-toast-undo');
+    const memoryId = result.id;
     undoEl.addEventListener('click', async () => {
+        if (!memoryId) return;
         try {
-            await fetch(`/api/memory/${result.id}`, { method: 'DELETE' });
-            toast.querySelector('.memory-toast-content').textContent = ' Forgotten';
+            await fetch(`/api/memory/${memoryId}`, { method: 'DELETE' });
+            toast.querySelector('.memory-toast-content').textContent = 'Removed.';
             undoEl.remove();
+            if (typeof loadSidebarMemories === 'function') await loadSidebarMemories();
         } catch (e) {
             console.error('undo memory failed', e);
         }
     });
 
     document.body.appendChild(toast);
-    // Next-frame trigger for the CSS transition.
     requestAnimationFrame(() => toast.classList.add('visible'));
-
-    setTimeout(() => {
-        toast.classList.remove('visible');
-        setTimeout(() => toast.remove(), 300);
-    }, 6000);
+    dismissMemoryToast(toast, 6000);
 }
 
 // Expose on window so core.js can call it without imports (the existing JS

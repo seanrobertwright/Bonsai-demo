@@ -1,7 +1,7 @@
 import os
 import tempfile
 import pytest
-from chat.db import ChatDB
+from chat.db import ChatDB, normalize_conversation_title
 
 
 @pytest.fixture
@@ -43,13 +43,27 @@ def test_add_and_get_messages(db):
 def test_delete_conversation(db):
     conv = db.create_conversation("To Delete")
     db.add_message(conv["id"], "user", "test")
-    db.delete_conversation(conv["id"])
+    assert db.delete_conversation(conv["id"]) is True
     assert db.list_conversations() == []
     assert db.get_messages(conv["id"]) == []
+    assert db.delete_conversation(conv["id"]) is False
+
+
+def test_delete_conversation_unknown(db):
+    assert db.delete_conversation("00000000-0000-0000-0000-000000000000") is False
 
 
 def test_update_title(db):
     conv = db.create_conversation("Old Title")
-    db.update_title(conv["id"], "New Title")
+    assert db.update_title(conv["id"], "New Title") == 1
     convs = db.list_conversations()
     assert convs[0]["title"] == "New Title"
+    assert db.update_title("00000000-0000-0000-0000-000000000000", "X") == 0
+
+
+def test_normalize_conversation_title():
+    assert normalize_conversation_title("  Hello   world  ") == "Hello world"
+    with pytest.raises(ValueError):
+        normalize_conversation_title("   ")
+    with pytest.raises(ValueError):
+        normalize_conversation_title(123)  # type: ignore[arg-type]

@@ -25,7 +25,7 @@ class RememberTool:
                 "goals, or explicit preferences about how they want you to behave. "
                 "DO NOT use for passing remarks, questions the user asked, "
                 "information about topics (only about the user), anything already "
-                "in 'Things you know about the user', or anything you're not "
+                "in 'Facts you already know about the user', or anything you're not "
                 "confident will still be true next week. When in doubt, don't "
                 "save. Save at most one fact per turn. Write content as a short "
                 "third-person sentence, e.g. 'User lives in Boston'."

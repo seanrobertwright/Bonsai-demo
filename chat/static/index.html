@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Bonsai Chat</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌳</text></svg>">
-    <link rel="stylesheet" href="/style.css?v=8">
+    <link rel="stylesheet" href="/style.css?v=15">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11/build/styles/github-dark.min.css">
     <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11/build/highlight.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
@@ -87,24 +87,37 @@
             </div>
         </main>
 
-        <!-- Tool panel -->
-        <aside id="tool-panel">
-            <div class="panel-section">
-                <h3>Tools</h3>
-                <div id="tool-list"></div>
-            </div>
-            <div class="panel-section">
-                <h3>This Conversation</h3>
-                <div id="tool-log">
-                    <p class="empty-state">No tool usage yet</p>
+        <!-- Tool panel (accordion: each section expands/collapses independently) -->
+        <aside id="tool-panel" aria-label="Tools and context">
+            <details class="tool-panel-accordion" open>
+                <summary class="tool-panel-accordion__summary">Tools</summary>
+                <div class="tool-panel-accordion__body">
+                    <div id="tool-list"></div>
                 </div>
-            </div>
-            <div class="panel-section">
-                <h3>Artifacts</h3>
-                <div id="artifacts">
-                    <p class="empty-state">No files yet</p>
+            </details>
+            <details class="tool-panel-accordion tool-panel-accordion--memories" open>
+                <summary class="tool-panel-accordion__summary">Memories</summary>
+                <div class="tool-panel-accordion__body">
+                    <p class="panel-hint">All saved facts (newest first). Scroll to see every entry.</p>
+                    <ul id="tool-panel-memory-list" class="memory-datalist" role="list" aria-label="All saved memories"></ul>
                 </div>
-            </div>
+            </details>
+            <details class="tool-panel-accordion" open>
+                <summary class="tool-panel-accordion__summary">This Conversation</summary>
+                <div class="tool-panel-accordion__body">
+                    <div id="tool-log">
+                        <p class="empty-state">No tool usage yet</p>
+                    </div>
+                </div>
+            </details>
+            <details class="tool-panel-accordion" open>
+                <summary class="tool-panel-accordion__summary">Artifacts</summary>
+                <div class="tool-panel-accordion__body">
+                    <div id="artifacts">
+                        <p class="empty-state">No files yet</p>
+                    </div>
+                </div>
+            </details>
         </aside>
 
         <!-- Search overlay -->
@@ -122,7 +135,7 @@
                 <div class="shortcut-list">
                     <div class="shortcut-row"><kbd>Ctrl+K</kbd><span>Search conversations</span></div>
                     <div class="shortcut-row"><kbd>Ctrl+N</kbd><span>New chat</span></div>
-                    <div class="shortcut-row"><kbd>Ctrl+Shift+&larr;</kbd><span>Delete conversation</span></div>
+                    <div class="shortcut-row"><kbd>Ctrl+Shift+Bksp</kbd><span>Delete conversation</span></div>
                     <div class="shortcut-row"><kbd>Escape</kbd><span>Close overlay</span></div>
                     <div class="shortcut-row"><kbd>&uarr;</kbd><span>Edit last message</span></div>
                     <div class="shortcut-row"><kbd>?</kbd><span>Show this help</span></div>
@@ -146,7 +159,7 @@
 
         <!-- Settings modal -->
         <div id="settings-modal" class="modal hidden">
-            <div class="modal-content" style="width:480px">
+            <div class="modal-content" style="width:520px">
                 <h2>Settings</h2>
                 <div class="settings-tabs">
                     <button class="tab-btn active" onclick="switchSettingsTab('general', this)">General</button>
@@ -155,17 +168,34 @@
                 </div>
 
                 <div id="tab-general" class="tab-content">
+                    <p class="settings-section-label">Generation</p>
+                    <div class="setting">
+                        <label for="cfg-temperature">Temperature</label>
+                        <input type="number" id="cfg-temperature" min="0" max="2" step="0.05" inputmode="decimal">
+                        <span class="setting-hint">0–2 — higher is more random</span>
+                    </div>
+                    <div class="setting">
+                        <label for="cfg-top-p">Top P</label>
+                        <input type="number" id="cfg-top-p" min="0" max="1" step="0.05" inputmode="decimal">
+                        <span class="setting-hint">0–1 — nucleus sampling</span>
+                    </div>
+                    <div class="setting">
+                        <label for="cfg-top-k">Top K</label>
+                        <input type="number" id="cfg-top-k" min="1" max="100000" step="1" inputmode="numeric">
+                        <span class="setting-hint">Limit token pool per step</span>
+                    </div>
+                    <p class="settings-section-label">Integrations</p>
                     <div class="setting">
                         <label>SerpAPI Key (optional)</label>
-                        <input type="password" id="cfg-serpapi" placeholder="Leave blank for DuckDuckGo">
+                        <input type="password" id="cfg-serpapi" placeholder="Leave blank for DuckDuckGo" autocomplete="off">
                     </div>
                     <div class="setting">
                         <label>OpenWeatherMap Key (optional)</label>
-                        <input type="password" id="cfg-openweather" placeholder="Leave blank for Open-Meteo">
+                        <input type="password" id="cfg-openweather" placeholder="Leave blank for Open-Meteo" autocomplete="off">
                     </div>
                     <div class="setting">
                         <label>Sandbox Directory</label>
-                        <input type="text" id="cfg-sandbox">
+                        <input type="text" id="cfg-sandbox" autocomplete="off">
                     </div>
                 </div>
 
@@ -192,15 +222,15 @@
             </div>
         </div>
     </div>
-    <script src="/js/messages.js?v=8"></script>
-    <script src="/js/conversations.js?v=8"></script>
-    <script src="/js/settings.js?v=8"></script>
-    <script src="/js/controls.js?v=8"></script>
-    <script src="/js/stats.js?v=8"></script>
-    <script src="/js/uploads.js?v=8"></script>
-    <script src="/js/memory.js?v=8"></script>
-    <script src="/js/voice.js?v=8"></script>
-    <script src="/js/shortcuts.js?v=8"></script>
-    <script src="/js/core.js?v=8"></script>
+    <script src="/js/messages.js?v=15"></script>
+    <script src="/js/conversations.js?v=15"></script>
+    <script src="/js/settings.js?v=15"></script>
+    <script src="/js/controls.js?v=15"></script>
+    <script src="/js/stats.js?v=15"></script>
+    <script src="/js/uploads.js?v=15"></script>
+    <script src="/js/memory.js?v=15"></script>
+    <script src="/js/voice.js?v=15"></script>
+    <script src="/js/shortcuts.js?v=15"></script>
+    <script src="/js/core.js?v=15"></script>
 </body>
 </html>
