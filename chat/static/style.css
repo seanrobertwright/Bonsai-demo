@@ -470,3 +470,91 @@ body {
 #send-btn.stop-btn:hover {
     background: #f85149;
 }
+
+/* Response action buttons */
+.message-actions {
+    display: flex;
+    gap: 4px;
+    margin-top: 4px;
+    margin-left: 40px;
+    opacity: 0;
+    transition: opacity 0.15s;
+}
+.message:hover .message-actions,
+.message-actions:focus-within {
+    opacity: 1;
+}
+.message-action-btn {
+    background: none;
+    border: 1px solid transparent;
+    color: var(--text-muted);
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+.message-action-btn:hover {
+    color: var(--text-secondary);
+    border-color: var(--border);
+    background: var(--bg-tertiary);
+}
+
+/* User message edit */
+.message.user .edit-btn {
+    position: absolute;
+    top: 8px;
+    left: -28px;
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.15s;
+    padding: 2px;
+}
+.message.user:hover .edit-btn {
+    opacity: 1;
+}
+.message.user .edit-btn:hover {
+    color: var(--text-secondary);
+}
+.message.user .message-content {
+    position: relative;
+}
+.edit-textarea {
+    width: 100%;
+    background: var(--bg-primary);
+    border: 1px solid var(--accent-blue);
+    border-radius: 6px;
+    padding: 8px 10px;
+    color: var(--text-primary);
+    font-size: 14px;
+    font-family: inherit;
+    resize: none;
+    outline: none;
+    min-height: 60px;
+}
+.edit-actions {
+    display: flex;
+    gap: 6px;
+    justify-content: flex-end;
+    margin-top: 6px;
+}
+.edit-actions button {
+    padding: 4px 12px;
+    border-radius: 4px;
+    font-size: 12px;
+    cursor: pointer;
+    border: none;
+}
+.edit-actions .save-resend {
+    background: var(--accent-green);
+    color: white;
+}
+.edit-actions .cancel-edit {
+    background: var(--border);
+    color: var(--text-primary);
+}

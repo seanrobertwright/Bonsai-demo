@@ -77,12 +77,47 @@ function appendMessage(role, content) {
     div.className = `message ${role}`;
     const avatarClass = role === 'user' ? 'user-avatar' : 'bot-avatar';
     const avatarContent = role === 'user' ? 'U' : '&#127793;';
+
     div.innerHTML = `
         <div class="avatar ${avatarClass}">${avatarContent}</div>
         <div class="message-content">${role === 'user' ? escapeHtml(content) : marked.parse(preprocessMarkdown(content))}</div>
     `;
-    if (role === 'assistant') enhanceCodeBlocks(div);
+
+    if (role === 'assistant') {
+        enhanceCodeBlocks(div);
+    }
+
+    // Add edit button for user messages
+    if (role === 'user') {
+        const contentWrapper = div.querySelector('.message-content');
+        contentWrapper.style.position = 'relative';
+        const editBtn = document.createElement('button');
+        editBtn.className = 'edit-btn';
+        editBtn.title = 'Edit message';
+        editBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>';
+        editBtn.onclick = () => editMessage(div, content);
+        contentWrapper.appendChild(editBtn);
+    }
+
     messages.appendChild(div);
+
+    // Add action buttons for assistant messages (only for completed messages with content)
+    if (role === 'assistant' && content) {
+        const actions = document.createElement('div');
+        actions.className = 'message-actions';
+        actions.innerHTML = `
+            <button class="message-action-btn" onclick="copyResponse(this)" title="Copy">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                Copy
+            </button>
+            <button class="message-action-btn" onclick="regenerateResponse()" title="Regenerate">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 4v6h6"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+                Regenerate
+            </button>
+        `;
+        messages.appendChild(actions);
+    }
+
     scrollToBottom();
     return div;
 }

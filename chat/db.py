@@ -89,5 +89,35 @@ class ChatDB:
             result.append(d)
         return result
 
+    def delete_last_assistant_message(self, conversation_id: str) -> str | None:
+        """Delete the last assistant message. Returns the last user message content for re-sending."""
+        row = self.conn.execute(
+            "SELECT id FROM messages WHERE conversation_id = ? AND role = 'assistant' ORDER BY created_at DESC LIMIT 1",
+            (conversation_id,),
+        ).fetchone()
+        if row:
+            self.conn.execute("DELETE FROM messages WHERE id = ?", (row["id"],))
+            self.conn.commit()
+
+        # Return last user message for re-send
+        user_row = self.conn.execute(
+            "SELECT content FROM messages WHERE conversation_id = ? AND role = 'user' ORDER BY created_at DESC LIMIT 1",
+            (conversation_id,),
+        ).fetchone()
+        return user_row["content"] if user_row else None
+
+    def delete_messages_after_last_user(self, conversation_id: str) -> None:
+        """Delete the last user message and all messages after it."""
+        row = self.conn.execute(
+            "SELECT created_at FROM messages WHERE conversation_id = ? AND role = 'user' ORDER BY created_at DESC LIMIT 1",
+            (conversation_id,),
+        ).fetchone()
+        if row:
+            self.conn.execute(
+                "DELETE FROM messages WHERE conversation_id = ? AND created_at >= ?",
+                (conversation_id, row["created_at"]),
+            )
+            self.conn.commit()
+
     def close(self):
         self.conn.close()

@@ -104,6 +104,75 @@ async def websocket_chat(ws: WebSocket, conv_id: str):
                     ws._cancel_event.set()
                 continue
 
+            # Handle regenerate signal
+            if msg.get("type") == "regenerate":
+                last_user_content = db.delete_last_assistant_message(conv_id)
+                if not last_user_content:
+                    continue
+
+                history = [
+                    {"role": m["role"], "content": m["content"]}
+                    for m in db.get_messages(conv_id)
+                    if m["role"] in ("user", "assistant")
+                ]
+
+                full_response = ""
+                cancel_event = asyncio.Event()
+                ws._cancel_event = cancel_event
+
+                async def on_token_regen(token):
+                    nonlocal full_response
+                    full_response += token
+                    await ws.send_text(json.dumps({"type": "token", "content": token}))
+
+                async def on_tool_start_regen(name, args):
+                    await ws.send_text(json.dumps({"type": "tool_start", "name": name, "arguments": args}))
+
+                async def on_tool_end_regen(name, result):
+                    await ws.send_text(json.dumps({"type": "tool_end", "name": name, "result": result}))
+
+                result = await agent.run(history, on_token=on_token_regen, on_tool_start=on_tool_start_regen, on_tool_end=on_tool_end_regen, cancel_event=cancel_event)
+                final_content = result["content"] if result else full_response
+                db.add_message(conv_id, "assistant", final_content, tool_calls=result.get("tool_calls") if result else None)
+                await ws.send_text(json.dumps({"type": "done"}))
+                continue
+
+            # Handle edit_resend signal
+            if msg.get("type") == "edit_resend":
+                new_content = msg.get("content", "")
+                if not new_content.strip():
+                    continue
+
+                db.delete_messages_after_last_user(conv_id)
+                db.add_message(conv_id, "user", new_content)
+
+                history = [
+                    {"role": m["role"], "content": m["content"]}
+                    for m in db.get_messages(conv_id)
+                    if m["role"] in ("user", "assistant")
+                ]
+
+                full_response = ""
+                cancel_event = asyncio.Event()
+                ws._cancel_event = cancel_event
+
+                async def on_token_edit(token):
+                    nonlocal full_response
+                    full_response += token
+                    await ws.send_text(json.dumps({"type": "token", "content": token}))
+
+                async def on_tool_start_edit(name, args):
+                    await ws.send_text(json.dumps({"type": "tool_start", "name": name, "arguments": args}))
+
+                async def on_tool_end_edit(name, result):
+                    await ws.send_text(json.dumps({"type": "tool_end", "name": name, "result": result}))
+
+                result = await agent.run(history, on_token=on_token_edit, on_tool_start=on_tool_start_edit, on_tool_end=on_tool_end_edit, cancel_event=cancel_event)
+                final_content = result["content"] if result else full_response
+                db.add_message(conv_id, "assistant", final_content, tool_calls=result.get("tool_calls") if result else None)
+                await ws.send_text(json.dumps({"type": "done"}))
+                continue
+
             user_content = msg.get("content", "")
 
             if not user_content.strip():
