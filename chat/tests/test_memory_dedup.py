@@ -22,3 +22,17 @@ def test_memory_has_source_column_defaulting_to_user(db):
 def test_memory_add_with_explicit_source(db):
     mem = db.add_memory("User lives in Boston", source="model")
     assert mem["source"] == "model"
+
+
+def test_memory_cap_at_50(db):
+    for i in range(55):
+        db.add_memory(f"fact {i}")
+    mems = db.list_memories()
+    assert len(mems) == 50
+    # Oldest should be evicted; newest kept. list_memories returns newest-first.
+    assert mems[0]["content"] == "fact 54"
+    # "fact 0" through "fact 4" should be gone.
+    contents = {m["content"] for m in mems}
+    assert "fact 0" not in contents
+    assert "fact 4" not in contents
+    assert "fact 5" in contents
