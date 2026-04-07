@@ -16,12 +16,30 @@ def db():
 
 def test_memory_has_source_column_defaulting_to_user(db):
     mem = db.add_memory("User lives in Boston")
+    assert mem["status"] == "saved"
     assert mem["source"] == "user"
 
 
 def test_memory_add_with_explicit_source(db):
     mem = db.add_memory("User lives in Boston", source="model")
+    assert mem["status"] == "saved"
     assert mem["source"] == "model"
+
+
+def test_exact_duplicate_returns_duplicate_status(db):
+    first = db.add_memory("User lives in Boston", source="model")
+    assert first["status"] == "saved"
+    second = db.add_memory("User lives in Boston", source="model")
+    assert second["status"] == "duplicate"
+    mems = db.list_memories()
+    assert len(mems) == 1
+
+
+def test_exact_dedup_is_case_and_whitespace_insensitive(db):
+    db.add_memory("User lives in Boston", source="model")
+    dup = db.add_memory("  USER lives in boston  ", source="model")
+    assert dup["status"] == "duplicate"
+    assert len(db.list_memories()) == 1
 
 
 def test_memory_cap_at_50(db):

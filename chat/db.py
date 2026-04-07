@@ -178,11 +178,23 @@ class ChatDB:
             self.conn.commit()
 
     def add_memory(self, content: str, source: str = "user") -> dict:
-        mid = str(uuid.uuid4())
         now = datetime.now(timezone.utc).isoformat()
+        normalized = content.strip().lower()
+
+        # 1. Exact-match dedup (case- and whitespace-insensitive)
+        existing = self.conn.execute(
+            "SELECT id FROM memories WHERE LOWER(TRIM(content)) = ?",
+            (normalized,),
+        ).fetchone()
+        if existing:
+            return {"status": "duplicate", "id": existing["id"]}
+
+        # 2. Fresh insert
+        mid = str(uuid.uuid4())
+        stored = content.strip()
         self.conn.execute(
             "INSERT INTO memories (id, content, created_at, source) VALUES (?, ?, ?, ?)",
-            (mid, content, now, source),
+            (mid, stored, now, source),
         )
         # Auto-prune to 50 (FIFO across all sources). Tiebreak on rowid so
         # rapid inserts with identical ISO timestamps still evict in
@@ -193,7 +205,13 @@ class ChatDB:
             )
         """)
         self.conn.commit()
-        return {"id": mid, "content": content, "created_at": now, "source": source}
+        return {
+            "status": "saved",
+            "id": mid,
+            "content": stored,
+            "created_at": now,
+            "source": source,
+        }
 
     def list_memories(self) -> list[dict]:
         # rowid tiebreak makes ordering deterministic when ISO timestamps collide.
