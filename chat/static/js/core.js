@@ -82,13 +82,18 @@ function handleWSMessage(data) {
             doneBtn.classList.remove('stop-btn');
             doneBtn.onclick = sendMessage;
             doneBtn.disabled = false;
-            document.getElementById('message-input').disabled = false;
+            const doneInput = document.getElementById('message-input');
+            doneInput.disabled = false;
+            // Defer focus so it lands after any pending DOM updates / scrolling
+            setTimeout(() => doneInput.focus(), 50);
             break;
 
         case 'error':
             appendSystemMessage(`Error: ${data.message}`);
             document.getElementById('send-btn').disabled = false;
-            document.getElementById('message-input').disabled = false;
+            const errInput = document.getElementById('message-input');
+            errInput.disabled = false;
+            setTimeout(() => errInput.focus(), 50);
             break;
     }
 }

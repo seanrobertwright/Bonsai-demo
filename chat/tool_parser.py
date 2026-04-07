@@ -131,7 +131,7 @@ def _extract_intent_calls(text: str, available_tools: list[str]) -> list[dict]:
 
     # Calculator patterns
     if "calculator" in available_tools and not calls:
-        if any(kw in text_lower for kw in ["calculate", "compute", "evaluate", "math", "% of", "what is"]):
+        if any(kw in text_lower for kw in ["calculate", "compute", "evaluate", "% of"]):
             patterns = [
                 r'(?:calculate|compute|evaluate)\s*(?:that\s*)?:?\s*(.+?)(?:\.|$)',
                 r'(\d+%?\s*(?:of|times|plus|minus|divided by)\s*\d+)',

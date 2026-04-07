@@ -161,111 +161,340 @@ uv pip install open-webui
 
 ---
 
-## Bonsai Chat — Custom Web UI with Tools
+## Bonsai Chat — Full-Featured Local Web UI
 
-Bonsai Chat is a local, agentic chat assistant with a custom three-panel web UI and 6 built-in tools. It provides a ChatGPT-like experience powered entirely by the Bonsai model running on your machine — no cloud APIs required for core functionality.
+Bonsai Chat is a local, agentic chat assistant with ChatGPT/Claude.ai-level features running **entirely on your machine** — no cloud APIs required. Custom FastAPI + vanilla JS frontend with 6 built-in tools, conversation persistence, memory, voice input, file uploads, LaTeX rendering, and more.
 
-### Features
+<p align="center">
+  <em>Dark three-panel UI • Streaming responses • Tool pills • Markdown + syntax highlighting + LaTeX</em>
+</p>
 
-- **Three-panel UI** — conversation sidebar, chat area with markdown rendering, and a live tool status panel
-- **6 built-in tools** the model can call autonomously:
+### At a Glance
 
-  | Tool | Description | Provider |
-  |------|-------------|----------|
-  | **Web Search** | Search the internet for current information | DuckDuckGo (free) or SerpAPI |
-  | **URL Fetch** | Read and summarize any web page | Built-in (httpx + BeautifulSoup) |
-  | **Calculator** | Arithmetic, algebra, calculus, unit conversions | Built-in (sympy) |
-  | **File Manager** | Read, write, and list files in a sandboxed directory | Built-in (~/BonsaiFiles/) |
-  | **Weather** | Current conditions and 3-day forecast | Open-Meteo (free) or OpenWeatherMap |
-  | **Python Exec** | Run Python code snippets with captured output | Built-in (subprocess, 30s timeout) |
+| Category | Features |
+|---|---|
+| **Response controls** | Stop generation, Regenerate, Edit & Resend, Copy response |
+| **Conversation management** | SQLite history, search (Ctrl+K), pin, rename, export (Markdown/JSON), context menu |
+| **Rich content** | Markdown, syntax highlighting, line numbers, copy-code button, LaTeX (KaTeX), file uploads (drag-drop) |
+| **Intelligence** | 6 built-in tools, cross-conversation memory, per-conversation system prompts, model switching |
+| **Input** | Voice input (Web Speech API), keyboard shortcuts, multi-line textarea, attachments |
+| **Polish** | Skeleton loading, fade-in animations, token/speed stats, tabbed settings |
 
-- **Hybrid tool-calling** — tries structured JSON parsing first, falls back to intent detection from natural language (handles cases where the 8B model produces imperfect JSON)
-- **Streaming responses** — tokens stream to the browser in real-time via WebSocket
-- **Conversation persistence** — SQLite-backed chat history with auto-generated titles
-- **Transparent tool use** — tool calls appear as clickable pills showing what was called and the results
-- **Dark theme** — GitHub-inspired dark UI
-- **No API keys needed** — works out of the box with free providers; optionally upgrade via Settings
+### The 6 Built-in Tools
+
+| Tool | Description | Provider |
+|------|-------------|----------|
+| **Web Search** | Search the internet for current information | DuckDuckGo (free) or SerpAPI |
+| **URL Fetch** | Read and summarize any web page | Built-in (httpx + BeautifulSoup) |
+| **Calculator** | Arithmetic, algebra, calculus, unit conversions | Built-in (sympy) |
+| **File Manager** | Read, write, and list files in a sandboxed directory | Built-in (~/BonsaiFiles/) |
+| **Weather** | Current conditions and 3-day forecast | Open-Meteo (free) or OpenWeatherMap |
+| **Python Exec** | Run Python code snippets with captured output | Built-in (subprocess, 30s timeout) |
+
+The agent loop intercepts model output, detects tool calls (hybrid JSON + intent parsing), executes them, feeds results back to the model, and streams the final answer — up to 5 tool rounds per message.
 
 ### Architecture
 
 ```
-Browser (vanilla JS) ←→ FastAPI (WebSocket + REST) ←→ llama-server (GGUF)
-                              ↓
-                        Agent Loop (tool parsing, execution, multi-round)
-                              ↓
-                        Tools (web search, URL fetch, calculator, files, weather, Python)
+Browser (vanilla JS modules) ←──WebSocket/REST──→ FastAPI app.py
+                                                       │
+                                                       ├─→ Agent Loop (agent.py)
+                                                       │       ├─ parse tool calls
+                                                       │       ├─ execute tools
+                                                       │       └─ stream response
+                                                       │
+                                                       ├─→ SQLite (db.py)
+                                                       │       ├─ conversations
+                                                       │       ├─ messages
+                                                       │       └─ memories
+                                                       │
+                                                       └─→ llama-server :8080
+                                                               └─ Bonsai GGUF model
 ```
 
-The FastAPI backend sits between the browser and llama-server. An agent loop intercepts model output, detects tool calls, executes them, feeds results back to the model, and streams the final answer — up to 5 tool rounds per message.
+---
 
-### Installation
+## Zero-to-Hero Setup Walkthrough
 
-Bonsai Chat is included in the demo. After running the standard setup (`setup.sh` or `setup.ps1`), install the chat dependencies:
+This walks you through everything from a fresh clone to a fully working Bonsai Chat instance with all features enabled.
 
+### Prerequisites
+
+- **OS:** macOS (Apple Silicon), Linux, or Windows 10/11
+- **Disk:** ~10 GB free (model + binaries + deps)
+- **RAM:** 8 GB minimum for 1.7B, 16 GB recommended for 8B
+- **GPU (optional):** CUDA 12.4+ on Linux/Windows, Metal on macOS (auto-detected)
+- **A browser:** Chrome or Edge recommended (for voice input). Firefox/Safari work but voice button is hidden.
+
+### Step 1 — Clone & Run the Base Setup
+
+This downloads the Bonsai model weights and the llama.cpp binaries. If you already ran this, skip ahead to Step 2.
+
+**macOS / Linux:**
 ```bash
-# macOS / Linux
-source .venv/bin/activate
-pip install -e ".[chat]"
+git clone https://github.com/PrismML-Eng/Bonsai-demo.git
+cd Bonsai-demo
 
-# Windows (PowerShell)
-.\.venv\Scripts\pip.exe install -e ".[chat]"
+# Optional: choose a smaller model if you have limited RAM
+export BONSAI_MODEL=8B   # or 4B, 1.7B
+
+./setup.sh
 ```
 
-> **Note:** The launch scripts below auto-install these dependencies if they're missing, so you can skip this step and just run the launch script directly.
-
-### Running
-
-#### Windows (PowerShell)
-
+**Windows (PowerShell):**
 ```powershell
-.\scripts\start_chat.ps1
+git clone https://github.com/PrismML-Eng/Bonsai-demo.git
+cd Bonsai-demo
+
+$env:BONSAI_MODEL = "8B"   # or 4B, 1.7B
+
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+.\setup.ps1
 ```
 
-#### macOS / Linux
+When this finishes you'll have:
+- `models/gguf/<SIZE>/*.gguf` — the Bonsai model weights
+- `bin/<platform>/` — the llama-server binary
+- `.venv/` — Python environment with base deps
 
+### Step 2 — Launch Bonsai Chat
+
+The launch script installs chat dependencies if missing, boots `llama-server` if it's not already running, and starts the chat web app on port 9090.
+
+**macOS / Linux:**
 ```bash
 ./scripts/start_chat.sh
 ```
 
-Then open **http://localhost:9090** in your browser.
+**Windows (PowerShell):**
+```powershell
+.\scripts\start_chat.ps1
+```
 
-The launch script handles everything:
-1. Checks for (and installs) chat dependencies if missing
-2. Starts llama-server in the background if not already running
-3. Starts the Bonsai Chat web app on port 9090
+You should see output like:
+```
+[1/3] Checking chat dependencies...          OK
+[2/3] Starting llama-server on :8080...      OK
+[3/3] Starting Bonsai Chat on :9090...       OK
 
-Press **Ctrl+C** to stop the chat server. The llama-server continues running in the background for reuse.
+  →  Open http://localhost:9090 in your browser
+```
 
-### Configuration
+### Step 3 — Open the UI
 
-#### Environment Variables
+Navigate to **http://localhost:9090**. You'll land on the welcome screen with six capability pills. Click **+ New Chat** (or press `Ctrl+N`) and say hi.
+
+The first message auto-titles the conversation using the first 50 characters.
+
+### Step 4 — Try a Tool Call
+
+Ask the model to use a tool, e.g.:
+
+```
+What's the weather in Tokyo?
+```
+
+You'll see:
+1. A **skeleton placeholder** while the model thinks
+2. A **running tool pill** (orange pulse) showing `weather → Tokyo`
+3. The pill turns blue/completed after execution
+4. The model's natural-language answer streams in
+5. A **stats footer** shows `<tokens> · <tok/s> · <elapsed>s`
+
+Click the pill to expand the raw arguments. The right-hand **Tools** panel also logs every tool execution.
+
+### Step 5 — Explore the Controls
+
+While the model is streaming, the **Send** button turns red and becomes **Stop**. Hit it to cancel — the partial response is preserved.
+
+Hover over any assistant message to reveal the action row:
+
+| Button | What it does |
+|---|---|
+| **Copy** | Copy the full response text to clipboard |
+| **Regenerate** | Delete the last response and get a fresh one |
+| **Remember** | Save the first 100 chars as a cross-conversation memory |
+
+Hover over any **user** message to reveal a pencil icon on the left. Click it to edit inline — **Save & Resend** replaces the message and all subsequent ones with a fresh response. **Cancel** restores the original.
+
+Or just press `↑` in an empty input box to instantly edit your last message.
+
+### Step 6 — Attach a File
+
+Two ways to attach:
+
+1. **Drag-and-drop** any file onto the chat area — a blue dashed overlay appears
+2. Click the **paperclip icon** next to the input box
+
+Supported formats:
+- **Text/code:** `.txt`, `.py`, `.js`, `.ts`, `.json`, `.csv`, `.md`, `.html`, `.css` (content is embedded in the message, capped at 50 KB)
+- **Images:** `.png`, `.jpg`, `.jpeg`, `.gif`, `.webp` (attached but not analyzed — the current model is text-only)
+
+Files appear as chips above the input. Click `×` to remove before sending.
+
+### Step 7 — Use the Memory System
+
+Bonsai Chat has two types of persistent context:
+
+**Cross-conversation memories** — facts the model should know about you across every chat. Two ways to add:
+- Click **Remember** under any assistant response to save a key fact
+- Open **Settings → Memory** tab and manage the full list
+
+Memories are auto-pruned to the 20 most recent and injected into the system prompt of every conversation.
+
+**Per-conversation system prompts** — scoped instructions for one specific chat. Click the **brain icon** in the input footer → enter instructions → Save. Example:
+
+```
+Always respond in JSON with keys "summary" and "action_items".
+```
+
+### Step 8 — Search, Pin, Export
+
+- `Ctrl+K` opens the **search overlay**. Type to full-text search all conversations (title + message content). Click a result to jump there.
+- Hover over any conversation in the sidebar and click the `⋮` button for the context menu:
+  - **Pin/Unpin** — pinned conversations float to the top of the sidebar under a "Pinned" label
+  - **Export Markdown** — downloads a readable `.md` file
+  - **Export JSON** — downloads structured JSON (title + messages)
+  - **Rename** — inline editable title
+  - **Delete** — removes the conversation
+- Double-click a conversation title to rename it directly.
+
+### Step 9 — Keyboard Shortcuts
+
+Press `?` to see the full list. The essentials:
+
+| Shortcut | Action |
+|---|---|
+| `Ctrl+K` | Search conversations |
+| `Ctrl+N` | New chat |
+| `Ctrl+Shift+⌫` | Delete current conversation |
+| `↑` (empty input) | Edit last message |
+| `Enter` | Send message |
+| `Shift+Enter` | Newline in input |
+| `Escape` | Close any open overlay/modal |
+| `?` | Show shortcut help |
+
+On macOS, `Cmd` works in place of `Ctrl`.
+
+### Step 10 — Voice Input (Chrome/Edge)
+
+Click the microphone icon in the input footer. It turns red and pulses while listening. Speak — the transcript fills the textarea in real-time. Click again to stop.
+
+Firefox and Safari don't ship the Web Speech API, so the mic button is hidden automatically there.
+
+### Step 11 — LaTeX Math
+
+Inline math uses `$...$`, block math uses `$$...$$`. Ask:
+
+```
+Write the quadratic formula in LaTeX and prove it.
+```
+
+The `$x = \frac{-b \pm \sqrt{b^2 - 4ac}}{2a}$` expressions render via KaTeX. Malformed LaTeX is shown as an orange code block instead of crashing the page.
+
+### Step 12 — Settings Deep Dive
+
+Click **⚙ Settings** in the sidebar footer. The modal has three tabs:
+
+**General**
+- **SerpAPI Key** (optional) — upgrade web search from DuckDuckGo to SerpAPI
+- **OpenWeatherMap Key** (optional) — upgrade weather from Open-Meteo to OWM
+- **Sandbox Directory** — where the File Manager tool can read/write (default `~/BonsaiFiles/`)
+
+**Memory** — browse, delete individual memories, or clear all
+
+**Shortcuts** — reference card of all keyboard shortcuts
+
+### Step 13 — (Optional) Switch Models
+
+If you've downloaded multiple model sizes, a dropdown appears next to the brain icon in the input footer. Selection persists in `localStorage`.
+
+To download additional sizes:
+```bash
+BONSAI_MODEL=4B ./scripts/download_models.sh
+BONSAI_MODEL=1.7B ./scripts/download_models.sh
+```
+
+Note: model switching in the UI selects which model you *prefer*, but the active `llama-server` process always serves whatever size it was started with. To actually serve a different size, stop and restart:
+```bash
+BONSAI_MODEL=4B ./scripts/start_chat.sh
+```
+
+---
+
+## Configuration Reference
+
+### Environment Variables
 
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `BONSAI_MODEL` | `8B` | Model size to use (8B, 4B, or 1.7B) |
+| `BONSAI_MODELS_DIR` | `models/gguf/` | Where to scan for available models (for the UI dropdown) |
 | `CHAT_PORT` | `9090` | Port for the chat web UI |
 | `LLAMA_PORT` | `8080` | Port for llama-server |
-| `BONSAI_CTX` | `8192` | Context size (token limit). Use `0` for auto-fit (slower startup) |
-| `BONSAI_SANDBOX` | `~/BonsaiFiles/` | Sandbox directory for file I/O tool |
+| `BONSAI_CTX` | `8192` | Context size (token limit). Use `0` for auto-fit |
+| `BONSAI_SANDBOX` | `~/BonsaiFiles/` | Sandbox directory for File Manager + uploads |
+| `SERPAPI_KEY` | *(unset)* | Optional — use SerpAPI instead of DuckDuckGo |
+| `OPENWEATHER_KEY` | *(unset)* | Optional — use OpenWeatherMap instead of Open-Meteo |
 
-#### Optional API Keys
+### Files & Paths
 
-All tools work out of the box with free providers. For higher-quality results, configure premium providers via the Settings page in the UI, or set environment variables:
+| Path | What it is |
+|---|---|
+| `chat/bonsai_chat.db` | SQLite database (conversations, messages, memories) |
+| `chat/config.json` | Settings saved via the Settings UI |
+| `~/BonsaiFiles/` | Sandbox for File Manager tool |
+| `~/BonsaiFiles/uploads/` | Where attached files are stored |
 
-| Variable | Provider | Replaces |
-|----------|----------|----------|
-| `SERPAPI_KEY` | [SerpAPI](https://serpapi.com/) (web search) | DuckDuckGo |
-| `OPENWEATHER_KEY` | [OpenWeatherMap](https://openweathermap.org/api) | Open-Meteo |
+All of these are `.gitignore`d by default.
 
-### File Structure
+### Database Reset
+
+To wipe all conversations and memories and start fresh:
+```bash
+rm chat/bonsai_chat.db
+```
+The next launch will recreate an empty DB with the latest schema.
+
+---
+
+## Troubleshooting
+
+**"Connection refused" or the page loads but chat doesn't stream**
+→ llama-server isn't running or crashed. Check `llama-server.log`. Restart with `./scripts/start_chat.sh`.
+
+**Port 9090 or 8080 already in use**
+→ Either stop the conflicting process, or override the port:
+```bash
+CHAT_PORT=9091 LLAMA_PORT=8081 ./scripts/start_chat.sh
+```
+
+**Tool calls fail silently / model returns raw JSON**
+→ The hybrid parser handles most cases, but some malformed outputs fall through. Check the browser devtools console for errors and `llama-server.log` for model output.
+
+**Voice button is missing in Firefox/Safari**
+→ Expected. The Web Speech API only ships in Chromium-based browsers. Use Chrome or Edge.
+
+**Styles look wrong after updating**
+→ Hard-refresh the browser (`Ctrl+Shift+R` / `Cmd+Shift+R`) to bypass the cache. All asset URLs include a `?v=` cache-buster that increments with releases.
+
+**Model switching dropdown doesn't appear**
+→ You only have one model size downloaded. Download additional sizes with `BONSAI_MODEL=4B ./scripts/download_models.sh`.
+
+**`pytest` fails**
+→ Ensure chat deps are installed: `pip install -e ".[chat]"`. Run from the repo root: `python -m pytest chat/ -q` (36 tests should pass).
+
+---
+
+## File Structure
 
 ```
 chat/
-├── app.py                 # FastAPI entry point (REST + WebSocket)
+├── app.py                 # FastAPI entry point (REST + WebSocket + endpoints)
 ├── agent.py               # Agent loop (model → parse tools → execute → respond)
-├── tool_parser.py         # Hybrid JSON/fallback tool call parser
-├── config.py              # Configuration (env vars + config.json)
-├── db.py                  # SQLite conversation storage
+├── tool_parser.py         # Hybrid JSON/intent tool call parser
+├── config.py              # Config (env vars + config.json + model scan)
+├── db.py                  # SQLite: conversations, messages, memories, pin, system prompt
 ├── tools/
 │   ├── __init__.py        # Tool registry and interface
 │   ├── web_search.py      # DuckDuckGo / SerpAPI
@@ -275,10 +504,20 @@ chat/
 │   ├── weather.py         # Open-Meteo / OpenWeatherMap
 │   └── python_exec.py     # Sandboxed Python execution
 ├── static/
-│   ├── index.html         # Main page
-│   ├── style.css          # Dark theme styles
-│   └── app.js             # Chat UI (WebSocket, tool pills, markdown)
-└── tests/                 # Unit tests (36 tests)
+│   ├── index.html         # Main page (modals, overlays, input area)
+│   ├── style.css          # Dark theme, animations, all component styles
+│   └── js/                # Modular vanilla JS (no build step)
+│       ├── core.js        # WebSocket, state, init
+│       ├── messages.js    # Rendering, markdown, LaTeX, code blocks, tool pills
+│       ├── conversations.js  # Sidebar, search, pin, rename, export
+│       ├── controls.js    # Stop, regenerate, copy, edit & resend
+│       ├── settings.js    # Tabbed settings, memory list, model selector
+│       ├── memory.js      # System prompt, save-to-memory
+│       ├── uploads.js     # File upload, drag-drop, attachment chips
+│       ├── voice.js       # Web Speech API voice input
+│       ├── shortcuts.js   # Keyboard shortcut handler
+│       └── stats.js       # Token count / speed tracking
+└── tests/                 # 36 unit tests (db, tools, agent, parser)
 ```
 
 ---
@@ -354,15 +593,18 @@ Bonsai-demo/
 │   ├── build_mac.sh                # Build llama.cpp for Mac
 │   ├── build_cuda_linux.sh         # Build llama.cpp for Linux CUDA
 │   └── build_cuda_windows.ps1      # Build llama.cpp for Windows CUDA
-├── chat/                           # Bonsai Chat — agentic web UI
+├── chat/                           # Bonsai Chat — full-featured web UI
 │   ├── app.py                      # FastAPI app (REST + WebSocket)
-│   ├── agent.py                    # Agent loop
+│   ├── agent.py                    # Agent loop (tool parsing, cancel, custom context)
 │   ├── tool_parser.py              # Hybrid tool call parser
-│   ├── config.py                   # Configuration
-│   ├── db.py                       # SQLite storage
+│   ├── config.py                   # Configuration + model scanning
+│   ├── db.py                       # SQLite storage (convs, msgs, memories)
 │   ├── tools/                      # 6 built-in tools
-│   ├── static/                     # Frontend (HTML/CSS/JS)
-│   └── tests/                      # Unit tests
+│   ├── static/
+│   │   ├── index.html              # Main page
+│   │   ├── style.css               # Dark theme
+│   │   └── js/                     # 10 vanilla JS modules (no bundler)
+│   └── tests/                      # 36 unit tests
 ├── models/                         # ← downloaded by setup
 │   ├── gguf/
 │   │   ├── 8B/                     # GGUF 8B model
