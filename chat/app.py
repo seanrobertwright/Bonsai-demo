@@ -27,7 +27,7 @@ agent: AgentLoop | None = None
 async def startup():
     global db, agent
     db = ChatDB(str(DB_PATH))
-    registry = create_registry()
+    registry = create_registry(db=db)
     agent = AgentLoop(registry)
 
 

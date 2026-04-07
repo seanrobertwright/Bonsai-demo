@@ -35,8 +35,11 @@ class ToolRegistry:
         return list(self._tools.keys())
 
 
-def create_registry() -> ToolRegistry:
-    """Create registry with all built-in tools."""
+def create_registry(db=None) -> ToolRegistry:
+    """Create registry with all built-in tools.
+
+    If `db` is provided, registers db-dependent tools (currently: remember).
+    """
     from chat.tools.calculator import CalculatorTool
     from chat.tools.file_io import FileIOTool
     from chat.tools.python_exec import PythonExecTool
@@ -51,4 +54,9 @@ def create_registry() -> ToolRegistry:
     registry.register(FileIOTool())
     registry.register(WeatherTool())
     registry.register(PythonExecTool())
+
+    if db is not None:
+        from chat.tools.remember import RememberTool
+        registry.register(RememberTool(db))
+
     return registry
