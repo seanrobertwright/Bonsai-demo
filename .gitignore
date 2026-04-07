@@ -217,3 +217,10 @@ mlx/
 .webui_secret_key
 *.tar.gz
 *.zip
+
+# Bonsai Chat
+chat/bonsai_chat.db
+chat/config.json
+.superpowers/
+llama-server-start.cmd
+llama-server.log

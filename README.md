@@ -161,6 +161,128 @@ uv pip install open-webui
 
 ---
 
+## Bonsai Chat — Custom Web UI with Tools
+
+Bonsai Chat is a local, agentic chat assistant with a custom three-panel web UI and 6 built-in tools. It provides a ChatGPT-like experience powered entirely by the Bonsai model running on your machine — no cloud APIs required for core functionality.
+
+### Features
+
+- **Three-panel UI** — conversation sidebar, chat area with markdown rendering, and a live tool status panel
+- **6 built-in tools** the model can call autonomously:
+
+  | Tool | Description | Provider |
+  |------|-------------|----------|
+  | **Web Search** | Search the internet for current information | DuckDuckGo (free) or SerpAPI |
+  | **URL Fetch** | Read and summarize any web page | Built-in (httpx + BeautifulSoup) |
+  | **Calculator** | Arithmetic, algebra, calculus, unit conversions | Built-in (sympy) |
+  | **File Manager** | Read, write, and list files in a sandboxed directory | Built-in (~/BonsaiFiles/) |
+  | **Weather** | Current conditions and 3-day forecast | Open-Meteo (free) or OpenWeatherMap |
+  | **Python Exec** | Run Python code snippets with captured output | Built-in (subprocess, 30s timeout) |
+
+- **Hybrid tool-calling** — tries structured JSON parsing first, falls back to intent detection from natural language (handles cases where the 8B model produces imperfect JSON)
+- **Streaming responses** — tokens stream to the browser in real-time via WebSocket
+- **Conversation persistence** — SQLite-backed chat history with auto-generated titles
+- **Transparent tool use** — tool calls appear as clickable pills showing what was called and the results
+- **Dark theme** — GitHub-inspired dark UI
+- **No API keys needed** — works out of the box with free providers; optionally upgrade via Settings
+
+### Architecture
+
+```
+Browser (vanilla JS) ←→ FastAPI (WebSocket + REST) ←→ llama-server (GGUF)
+                              ↓
+                        Agent Loop (tool parsing, execution, multi-round)
+                              ↓
+                        Tools (web search, URL fetch, calculator, files, weather, Python)
+```
+
+The FastAPI backend sits between the browser and llama-server. An agent loop intercepts model output, detects tool calls, executes them, feeds results back to the model, and streams the final answer — up to 5 tool rounds per message.
+
+### Installation
+
+Bonsai Chat is included in the demo. After running the standard setup (`setup.sh` or `setup.ps1`), install the chat dependencies:
+
+```bash
+# macOS / Linux
+source .venv/bin/activate
+pip install -e ".[chat]"
+
+# Windows (PowerShell)
+.\.venv\Scripts\pip.exe install -e ".[chat]"
+```
+
+> **Note:** The launch scripts below auto-install these dependencies if they're missing, so you can skip this step and just run the launch script directly.
+
+### Running
+
+#### Windows (PowerShell)
+
+```powershell
+.\scripts\start_chat.ps1
+```
+
+#### macOS / Linux
+
+```bash
+./scripts/start_chat.sh
+```
+
+Then open **http://localhost:9090** in your browser.
+
+The launch script handles everything:
+1. Checks for (and installs) chat dependencies if missing
+2. Starts llama-server in the background if not already running
+3. Starts the Bonsai Chat web app on port 9090
+
+Press **Ctrl+C** to stop the chat server. The llama-server continues running in the background for reuse.
+
+### Configuration
+
+#### Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `BONSAI_MODEL` | `8B` | Model size to use (8B, 4B, or 1.7B) |
+| `CHAT_PORT` | `9090` | Port for the chat web UI |
+| `LLAMA_PORT` | `8080` | Port for llama-server |
+| `BONSAI_CTX` | `8192` | Context size (token limit). Use `0` for auto-fit (slower startup) |
+| `BONSAI_SANDBOX` | `~/BonsaiFiles/` | Sandbox directory for file I/O tool |
+
+#### Optional API Keys
+
+All tools work out of the box with free providers. For higher-quality results, configure premium providers via the Settings page in the UI, or set environment variables:
+
+| Variable | Provider | Replaces |
+|----------|----------|----------|
+| `SERPAPI_KEY` | [SerpAPI](https://serpapi.com/) (web search) | DuckDuckGo |
+| `OPENWEATHER_KEY` | [OpenWeatherMap](https://openweathermap.org/api) | Open-Meteo |
+
+### File Structure
+
+```
+chat/
+├── app.py                 # FastAPI entry point (REST + WebSocket)
+├── agent.py               # Agent loop (model → parse tools → execute → respond)
+├── tool_parser.py         # Hybrid JSON/fallback tool call parser
+├── config.py              # Configuration (env vars + config.json)
+├── db.py                  # SQLite conversation storage
+├── tools/
+│   ├── __init__.py        # Tool registry and interface
+│   ├── web_search.py      # DuckDuckGo / SerpAPI
+│   ├── url_fetch.py       # HTTP fetch + HTML-to-text
+│   ├── calculator.py      # sympy-based math
+│   ├── file_io.py         # Sandboxed file operations
+│   ├── weather.py         # Open-Meteo / OpenWeatherMap
+│   └── python_exec.py     # Sandboxed Python execution
+├── static/
+│   ├── index.html         # Main page
+│   ├── style.css          # Dark theme styles
+│   └── app.js             # Chat UI (WebSocket, tool pills, markdown)
+└── tests/                 # Unit tests (36 tests)
+```
+
+---
+
 ## Building from Source
 
 If you prefer to build llama.cpp from source instead of using pre-built binaries:
@@ -227,9 +349,20 @@ Bonsai-demo/
 │   ├── start_llama_server.sh       # llama.cpp server (port 8080)
 │   ├── start_mlx_server.sh         # MLX server (port 8081)
 │   ├── start_openwebui.sh          # Open WebUI + auto-starts backends
+│   ├── start_chat.sh               # Bonsai Chat (Mac/Linux)
+│   ├── start_chat.ps1              # Bonsai Chat (Windows)
 │   ├── build_mac.sh                # Build llama.cpp for Mac
 │   ├── build_cuda_linux.sh         # Build llama.cpp for Linux CUDA
 │   └── build_cuda_windows.ps1      # Build llama.cpp for Windows CUDA
+├── chat/                           # Bonsai Chat — agentic web UI
+│   ├── app.py                      # FastAPI app (REST + WebSocket)
+│   ├── agent.py                    # Agent loop
+│   ├── tool_parser.py              # Hybrid tool call parser
+│   ├── config.py                   # Configuration
+│   ├── db.py                       # SQLite storage
+│   ├── tools/                      # 6 built-in tools
+│   ├── static/                     # Frontend (HTML/CSS/JS)
+│   └── tests/                      # Unit tests
 ├── models/                         # ← downloaded by setup
 │   ├── gguf/
 │   │   ├── 8B/                     # GGUF 8B model
